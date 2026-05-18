@@ -1,7 +1,9 @@
+@import "tailwindcss";
+@source "../../backend";
+
 .App {
   text-align: center;
   font-family: sans-serif;
-  padding: 50px;
 }
 .App-header {
   background-color: #282c34;

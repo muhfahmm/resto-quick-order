@@ -10,21 +10,26 @@ USE `db_restaurant_quick_order`;
 CREATE TABLE IF NOT EXISTS `tb_admin` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `username` VARCHAR(50) NOT NULL UNIQUE,
-  `password` VARCHAR(255) NOT NULL, -- Dapat di-hash bcrypt / md5 / plain text
-  `name` VARCHAR(100) NOT NULL,
-  `role` ENUM('admin', 'kitchen') NOT NULL DEFAULT 'kitchen',
+  `password` VARCHAR(255) NOT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 2. TABEL: tb_menu (Untuk Daftar Makanan & Minuman Dikelola Admin)
+-- 2A. TABEL: tb_category (Kategori Produk)
+CREATE TABLE IF NOT EXISTS `tb_category` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2B. TABEL: tb_menu (Untuk Daftar Makanan & Minuman Dikelola Admin)
 CREATE TABLE IF NOT EXISTS `tb_menu` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(100) NOT NULL,
-  `category` ENUM('food', 'drink', 'dessert') NOT NULL,
+  `category_id` INT NOT NULL,
   `price` DECIMAL(10,2) NOT NULL,
   `description` TEXT DEFAULT NULL,
-  `icon` VARCHAR(10) NOT NULL DEFAULT '🍢',
-  `is_available` TINYINT(1) NOT NULL DEFAULT 1 -- 1 = Tersedia, 0 = Habis
+  `image_url` VARCHAR(255) DEFAULT NULL,
+  `is_available` TINYINT(1) NOT NULL DEFAULT 1,
+  FOREIGN KEY (`category_id`) REFERENCES `tb_category` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 3. TABEL: tb_orders (Untuk Menyimpan Transaksi Utama QRIS)

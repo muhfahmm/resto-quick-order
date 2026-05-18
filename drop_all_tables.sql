@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS `tb_qrcodes`;
 DROP TABLE IF EXISTS `tb_order_items`;
 DROP TABLE IF EXISTS `tb_orders`;
 DROP TABLE IF EXISTS `tb_menu`;
+DROP TABLE IF EXISTS `tb_category`;
 DROP TABLE IF EXISTS `tb_admin`;
 
 -- Hidupkan kembali pemeriksaan foreign key

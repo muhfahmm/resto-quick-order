@@ -2,11 +2,31 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
+const multer = require('multer');
+const fs = require('fs');
 const db = require('./src/config/db');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Configure Multer for File Uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'menu-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -37,8 +57,118 @@ testDbConnection();
 // 1. GET: Fetch all active menus for Customer & Admin
 app.get('/api/menu', async (req, res) => {
   try {
-    const [menus] = await db.query('SELECT * FROM tb_menu');
-    res.json(menus);
+    const [menus] = await db.query(`
+      SELECT tb_menu.*, tb_category.name as category_name 
+      FROM tb_menu 
+      LEFT JOIN tb_category ON tb_menu.category_id = tb_category.id
+    `);
+    // Normalize image URLs so they are accessible from the client's host (not hardcoded to localhost)
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const normalized = menus.map(m => {
+      if (!m.image_url) return m;
+      // If stored with localhost (e.g. http://localhost:3005/uploads/...), replace host
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(m.image_url)) {
+        return { ...m, image_url: m.image_url.replace(/^https?:\/\/[^\/]+/, baseUrl) };
+      }
+      // If stored as relative path like /uploads/..., prefix with baseUrl
+      if (m.image_url.startsWith('/uploads')) {
+        return { ...m, image_url: baseUrl + m.image_url };
+      }
+      // Otherwise leave as-is
+      return m;
+    });
+
+    res.json(normalized);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/menu', upload.single('image'), async (req, res) => {
+  try {
+    const { name, category_id, price, description } = req.body;
+    let imageUrl = req.body.image_url || '';
+    
+    // If a file was uploaded, construct its URL
+    if (req.file) {
+      const host = req.get('host');
+      const protocol = req.protocol;
+      imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    }
+
+    const [result] = await db.query(
+      'INSERT INTO tb_menu (name, category_id, price, description, image_url) VALUES (?, ?, ?, ?, ?)',
+      [name, category_id, price, description || '', imageUrl]
+    );
+    res.status(201).json({ success: true, id: result.insertId });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/menu/:id', upload.single('image'), async (req, res) => {
+  try {
+    const { name, category_id, price, description } = req.body;
+    let imageUrl = req.body.image_url; // Might be undefined or a preserved string
+    
+    if (req.file) {
+      const host = req.get('host');
+      const protocol = req.protocol;
+      imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    }
+
+    // If an image_url is provided (either from new upload or preserved existing one)
+    if (imageUrl !== undefined) {
+      await db.query(
+        'UPDATE tb_menu SET name=?, category_id=?, price=?, description=?, image_url=? WHERE id=?',
+        [name, category_id, price, description || '', imageUrl, req.params.id]
+      );
+    } else {
+      await db.query(
+        'UPDATE tb_menu SET name=?, category_id=?, price=?, description=? WHERE id=?',
+        [name, category_id, price, description || '', req.params.id]
+      );
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/menu/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM tb_menu WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Category APIs
+app.get('/api/category', async (req, res) => {
+  try {
+    const [categories] = await db.query('SELECT * FROM tb_category');
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/category', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const [result] = await db.query('INSERT INTO tb_category (name) VALUES (?)', [name]);
+    res.status(201).json({ success: true, id: result.insertId, name });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete('/api/category/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM tb_category WHERE id=?', [req.params.id]);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -67,11 +197,27 @@ app.post('/api/admin/login', async (req, res) => {
       message: 'Login berhasil',
       user: {
         id: user.id,
-        username: user.username,
-        name: user.name,
-        role: user.role
+        username: user.username
       }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Admin Register
+app.post('/api/admin/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const [existing] = await db.query('SELECT * FROM tb_admin WHERE username = ?', [username]);
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Username sudah digunakan' });
+    }
+    await db.query(
+      'INSERT INTO tb_admin (username, password) VALUES (?, ?)',
+      [username, password]
+    );
+    res.status(201).json({ success: true, message: 'Register berhasil' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
