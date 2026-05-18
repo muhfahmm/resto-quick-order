@@ -1,0 +1,121 @@
+STRUKTUR FOLDER APLIKASI QUICK ORDER (REACT JS WEB + NODE.JS REAL-TIME)
+========================================================================
+
+Struktur di bawah ini dirancang berbasis WEB (Responsive Web App). Pelanggan TIDAK PERLU mendownload aplikasi apa pun. Cukup scan QR code di meja, lalu menu digital akan langsung terbuka di browser HP mereka (Chrome/Safari).
+
+Developer dapat menyalakan Frontend (React Web) dan Backend (Node.js API) sekaligus dengan SATU perintah: `npm run dev`.
+
+STRUKTUR POHON FOLDER (DIRECTORY TREE)
+------------------------------------------------------------------------
+/quick_order_restaurant
+│
+├── package.json                 # Konfigurasi Root (Menjalankan FE + BE sekaligus)
+├── README.md                    # Panduan instalasi dan pengujian
+├── struktur_folder.txt          # Berkas dokumentasi struktur ini (berkas ini)
+│
+├── /node_modules                # Modul dependensi root (dibuat otomatis oleh npm)
+│
+├── /frontend                    # FRONTEND: Web App (React JS + Vite)
+│   ├── index.html               # Entry point HTML utama
+│   ├── package.json             # Dependensi Frontend (React, React Router, Socket.io-client)
+│   ├── vite.config.js           # Konfigurasi Vite (Konfigurasi Network Host & Port)
+│   ├── /public                  # Aset statis publik (favicon, logo)
+│   └── /src                     # Kode sumber React JS
+│       ├── main.jsx             # Titik masuk Javascript React
+│       ├── App.jsx              # Komponen utama & router halaman
+│       ├── App.css              # Styling global
+│       ├── /components          # Komponen UI Reusable (MenuCard, CartDrawer, QRISModal)
+│       ├── /pages               # Halaman Web utama:
+│       │   ├── CustomerPage.jsx # Menu Pelanggan (tampilan mobile-first meja)
+│       │   ├── KitchenPage.jsx  # Dasbor Dapur (menerima order real-time)
+│       │   └── AdminPage.jsx    # Laporan keuangan & stok habis
+│       ├── /services            # Koneksi real-time ke Backend (socket.js, api.js)
+│       └── /context             # State management global (CartContext, OrderContext)
+│
+└── /backend                     # BACKEND: REST API & Real-time Server (Node.js)
+    ├── package.json             # Dependensi Backend (Express, Socket.io, pg/Prisma)
+    ├── server.js                # Titik masuk backend (Inisialisasi HTTP & Socket.io)
+    └── /src                     # Kode sumber Backend
+        ├── /config              # Koneksi Database & Environment Variables
+        ├── /controllers         # Logika Bisnis (menuController, orderController)
+        ├── /routes              # Definisi Endpoint API (menuRoutes, orderRoutes)
+        ├── /sockets             # Handler WebSockets untuk notifikasi Dapur
+        └── /models              # Definisi Schema Tabel / Database Model
+
+
+========================================================================
+KONFIGURASI OTOMATIS: MENYALAKAN FE DAN BE SEKALIGUS (npm run dev)
+========================================================================
+
+1. BERKAS: /quick_order_restaurant/package.json
+------------------------------------------------------------------------
+Buat berkas package.json di tingkat ROOT dengan isi sebagai berikut:
+
+{
+  "name": "quick-order-restaurant-root",
+  "version": "1.0.0",
+  "description": "Root configuration to run both React Web frontend and Node.js backend concurrently",
+  "scripts": {
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "dev": "concurrently --kill-others \"npm run dev --prefix frontend\" \"node backend/server.js\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+
+2. BERKAS: /quick_order_restaurant/frontend/package.json
+------------------------------------------------------------------------
+Di bagian script frontend, tambahkan parameter "--host" agar server Vite memancarkan alamat IP lokal di jaringan Wi-Fi:
+
+{
+  "name": "quick-order-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --port 5173",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "vite": "^5.0.0"
+  }
+}
+
+
+========================================================================
+CARA MENGUJI DI HANDPHONE SUNGGUHAN (TANPA INSTALL APLIKASI)
+========================================================================
+
+1. KONEKSI WI-FI YANG SAMA
+   Laptop/PC developer dan Handphone fisik Anda harus terhubung ke **satu jaringan Wi-Fi/Hotspot yang sama**.
+
+2. JALANKAN PERINTAH DEV
+   Buka terminal di root folder, jalankan perintah:
+   $ npm run dev
+
+3. PERHATIKAN OUTPUT TERMINAL VITE
+   Vite akan memunculkan informasi alamat akses web seperti berikut:
+   
+     ➜  Local:   http://localhost:5173/
+     ➜  Network: http://192.168.1.15:5173/   <-- SALIN IP INI!
+
+4. CARA SCAN QR CODE
+   - Buka website pembuat QR Code gratis di browser (misalnya: `qr-code-generator.com` atau `me-qr.com`).
+   - Masukkan alamat IP Network di atas (contoh: `http://192.168.1.15:5173/meja-05`).
+   - Unduh atau biarkan QR Code tampil di layar laptop Anda.
+   - **Buka kamera bawaan Handphone Anda**, arahkan ke QR Code tersebut.
+   - Ketuk notifikasi browser yang muncul di HP Anda!
+   
+5. WEB DIGITAL MENU TERBUKA INSTAN!
+   Website menu makanan kafe langsung berjalan di HP Anda. Pelanggan bisa langsung memesan makanan, memilih meja, dan membayar QRIS secara interaktif tanpa perlu mendownload aplikasi apa pun!

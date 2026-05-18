@@ -1,0 +1,16 @@
+{
+  "name": "quick-order-backend",
+  "version": "1.0.0",
+  "description": "Express and Socket.io server for Real-time Quick Order Restaurant POS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "mysql2": "^3.9.7",
+    "quick-order-restaurant-root": "file:..",
+    "socket.io": "^4.7.2"
+  }
+}

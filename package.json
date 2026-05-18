@@ -1,0 +1,12 @@
+{
+  "name": "quick-order-restaurant-root",
+  "version": "1.0.0",
+  "description": "Root configuration to run both React Web frontend and Node.js backend concurrently",
+  "scripts": {
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "dev": "concurrently --kill-others \"npm run dev --prefix frontend\" \"node backend/server.js\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

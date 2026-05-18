@@ -1,0 +1,94 @@
+RANCANGAN ALUR MASUK APLIKASI (ONBOARDING & LOGIN SYSTEM DESIGN)
+========================================================================
+Proyek: Quick Order (Restoran) - Berbasis Responsive Web App
+
+Dokumen ini menjelaskan alur masuk (user entry flow) yang dirancang khusus agar sangat praktis bagi pelanggan (tanpa pendaftaran rumit) dan aman bagi pengelola restoran (staf dapur & owner).
+
+---
+
+1. SISI PELANGGAN (CUSTOMER ENTRANCE FLOW) - DUA JALUR MASUK DUA KEBUTUHAN
+------------------------------------------------------------------------
+Sistem membedakan pelanggan secara cerdas menjadi 2 skenario akses demi memaksimalkan kenyamanan pemesanan di tempat maupun kenyamanan pengiriman dari rumah:
+
+========================================================================
+[ JALUR A: SCAN DI TEMPAT (ON-SITE TABLE SCAN) ] -> 100% TANPA LOGIN!
+========================================================================
+Skenario ini dikhususkan bagi pelanggan yang memindai QR Code fisik langsung di meja makan restoran. Alur berjalan bebas hambatan tanpa pendaftaran akun.
+
+Alur Langkah demi Langkah:
+   - [Langkah 1: Pindai QR di Meja]
+     Pelanggan datang ke restoran dan memindai QR Code meja (Contoh URL: `https://rasalegendaris.com/menu?table=05`).
+   
+   - [Langkah 2: Langsung Masuk Menu & Pesan]
+     Web App terbuka instan. Pelanggan **LANGSUNG dapat melihat menu, menambah belanjaan ke keranjang, tanpa login/tanpa password sama sekali!** Parameter nomor meja (`table=05`) otomatis terkunci di browser.
+   
+   - [Langkah 3: Checkout Tanpa Akun (Nama Pemesan Saja)]
+     Saat checkout, pelanggan cukup mengisikan **Nama Pemesan** (misal: "Fahim") tanpa perlu mengisi email/nomor HP/kata sandi.
+   
+   - [Langkah 4: Bayar QRIS & Kirim ke Dapur]
+     Pelanggan membayar secara langsung melalui layar QRIS di HP-nya. Begitu pembayaran lunas, pesanan di dapur berdering dan dicetak atas nama: "Fahim (Meja 05)".
+
+========================================================================
+[ JALUR B: AKSES ONLINE DARI LUAR RESTORAN (OFF-SITE / DELIVERY) ] -> PERLU LOGIN CEPAT
+========================================================================
+Skenario ini dikhususkan jika pelanggan membuka website restoran secara online dari rumah atau kantor (untuk pesan antar/Delivery atau pre-order bawa pulang/Take-Away).
+
+Alur Langkah demi Langkah:
+   - [Langkah 1: Buka Website Restoran]
+     Pelanggan mengakses URL utama: `https://rasalegendaris.com/` (tanpa ada parameter meja).
+   
+   - [Langkah 2: Pilih Layanan (Delivery / Take-Away)]
+     Sistem menanyakan opsi layanan. Karena makanan akan diantar atau diambil nanti, sistem membutuhkan data identitas yang jelas.
+   
+   - [Langkah 3: Login Praktis (WhatsApp OTP / Google Auth)]
+     Pelanggan masuk menggunakan metode sekali ketuk:
+     * Autentikasi Google (Google Auth), atau
+     * Mengirimkan kode verifikasi OTP instan ke nomor WhatsApp mereka.
+   
+   - [Langkah 4: Tentukan Alamat Pengiriman & Bayar]
+     Setelah login, pelanggan menentukan alamat rumah mereka di peta digital, melakukan checkout pembayaran online, dan status kurir pengantar makanan dapat dipantau di layar secara real-time.
+
+
+
+---
+
+2. SISI STAF RESTORAN & OWNER (STAFF/ADMIN SECURE LOGIN FLOW)
+------------------------------------------------------------------------
+Untuk staf dapur, kasir, dan pemilik restoran (owner), keamanan adalah prioritas utama. Mereka masuk melalui halaman login terpusat yang aman.
+
+Alur Langkah demi Langkah:
+   [ Langkah 1: Akses Halaman Login ]
+   Staf mengakses URL khusus yang tidak dipublikasikan ke pelanggan umum.
+   Contoh URL: https://rasalegendaris.com/login
+
+   [ Langkah 2: Autentikasi Pengguna (Authentication) ]
+   Staf memasukkan kredensial berupa:
+   - Username / Email Staf (Contoh: kitchen_crew@rasalegendaris.com)
+   - Kata Sandi / Password
+
+   [ Langkah 3: Pengalihan Berdasarkan Peran (Role-Based Authorization Redirect) ]
+   Sistem membaca peran (role) staf yang login dan secara otomatis mengarahkannya ke halaman yang sesuai:
+   
+   a. PERAN: STAF DAPUR (KITCHEN CREW)
+      - Otomatis dialihkan ke: https://rasalegendaris.com/kitchen/dashboard
+      - Tampilan dioptimalkan untuk tablet/monitor dapur agar koki dapat melihat antrean pesanan real-time, mengubah status memasak, dan mencetak struk thermal.
+      - Staf dapur TIDAK bisa mengakses data keuangan atau mengganti harga menu.
+
+   b. PERAN: OWNER / RESTORAN MANAGER
+      - Otomatis dialihkan ke: https://rasalegendaris.com/admin/dashboard
+      - Memiliki akses penuh ke semua fitur: melihat grafik laba rugi real-time (SVG Analytics), mematikan/menyalakan ketersediaan menu (manajemen stok), mengedit harga makanan, serta mendaftarkan akun staf dapur baru.
+
+
+---
+
+3. RANCANGAN PEMBUATAN QR CODE MEJA (QR CODE GENERATION DESIGN)
+------------------------------------------------------------------------
+Bagaimana pihak restoran mempersiapkan QR Code untuk meja makan mereka?
+
+1. Di dalam Dashboard Admin Owner, disediakan fitur "Cetak QR Code Meja".
+2. Owner memasukkan jumlah meja restoran (misalnya: 1 sampai 20).
+3. Sistem secara otomatis men-generate 20 berkas gambar QR Code unik yang masing-masing mengarah ke:
+   - Meja 01 ➜ https://rasalegendaris.com/menu?table=01
+   - Meja 02 ➜ https://rasalegendaris.com/menu?table=02
+   - ...dan seterusnya sampai Meja 20.
+4. Gambar QR Code tersebut diunduh dalam format siap cetak (PNG/PDF) untuk ditempelkan secara fisik di masing-masing meja restoran.
