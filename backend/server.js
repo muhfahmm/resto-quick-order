@@ -6,6 +6,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const db = require('./src/config/db');
+const QRCode = require('qrcode');
 
 const app = express();
 app.use(cors());
@@ -270,9 +271,120 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+app.get('/api/orders', async (req, res) => {
+  try {
+    const [orders] = await db.query(
+      'SELECT id, table_no, customer_name, total_price, status, created_at FROM tb_orders ORDER BY created_at DESC'
+    );
+
+    if (orders.length === 0) {
+      return res.json([]);
+    }
+
+    const orderIds = orders.map(order => order.id);
+    const [items] = await db.query(
+      `SELECT oi.order_id, oi.menu_id, oi.qty, oi.note, m.name AS menu_name, m.price AS menu_price
+       FROM tb_order_items oi
+       LEFT JOIN tb_menu m ON oi.menu_id = m.id
+       WHERE oi.order_id IN (?)`,
+      [orderIds]
+    );
+
+    const itemsByOrder = items.reduce((acc, item) => {
+      acc[item.order_id] = acc[item.order_id] || [];
+      acc[item.order_id].push({
+        menu_id: item.menu_id,
+        name: item.menu_name,
+        qty: item.qty,
+        price: item.menu_price,
+        note: item.note
+      });
+      return acc;
+    }, {});
+
+    const result = orders.map(order => ({
+      ...order,
+      items: itemsByOrder[order.id] || [],
+      item_count: (itemsByOrder[order.id] || []).reduce((sum, item) => sum + item.qty, 0)
+    }));
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.patch('/api/orders/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['pending', 'confirmed', 'ready', 'completed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid order status' });
+    }
+
+    const [result] = await db.query('UPDATE tb_orders SET status = ? WHERE id = ?', [status, req.params.id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    res.json({ success: true, status });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Health-check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: "ok", message: "Quick Order Restaurant backend is running." });
+});
+
+// List all generated QR codes
+app.get('/api/qrcodes', async (req, res) => {
+  try {
+    const [qrcodes] = await db.query('SELECT * FROM tb_qrcodes ORDER BY created_at DESC');
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const normalized = qrcodes.map(qr => {
+      if (qr.qr_image_path && qr.qr_image_path.startsWith('/uploads')) {
+        return { ...qr, qr_image_path: `${baseUrl}${qr.qr_image_path}` };
+      }
+      return qr;
+    });
+    res.json(normalized);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Generate QR code PNG for a table identifier
+app.get('/api/qrcode/:table', async (req, res) => {
+  try {
+    const table = req.params.table;
+    const host = req.get('host').split(':')[0];
+    const frontendPort = process.env.FRONTEND_PORT || 5173;
+    const targetUrl = `${req.protocol}://${host}:${frontendPort}/?table=${encodeURIComponent(table)}`;
+
+    const buffer = await QRCode.toBuffer(targetUrl, { type: 'png', width: 360, margin: 2 });
+
+    const qrcodeDir = path.join(__dirname, 'uploads', 'qrcodes');
+    if (!fs.existsSync(qrcodeDir)) {
+      fs.mkdirSync(qrcodeDir, { recursive: true });
+    }
+
+    const fileName = `qr-table-${table}-${Date.now()}.png`;
+    const filePath = path.join(qrcodeDir, fileName);
+    const dbImagePath = `/uploads/qrcodes/${fileName}`;
+    fs.writeFileSync(filePath, buffer);
+
+    await db.query(
+      'INSERT INTO tb_qrcodes (table_no, qr_code_url, qr_image_path) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE qr_code_url=VALUES(qr_code_url), qr_image_path=VALUES(qr_image_path), created_at=CURRENT_TIMESTAMP',
+      [table, targetUrl, dbImagePath]
+    );
+
+    res.set('Content-Type', 'image/png');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Real-time connection handler

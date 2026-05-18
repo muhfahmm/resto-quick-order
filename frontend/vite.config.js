@@ -14,7 +14,7 @@ const customConsoleLogger = () => ({
   }
 })
 
-// https://vitejs.dev/config/
+// Force restart Vite dev server
 export default defineConfig({
   plugins: [react(), customConsoleLogger()],
   server: {

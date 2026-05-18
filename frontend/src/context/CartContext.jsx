@@ -15,6 +15,19 @@ export function CartProvider({ children }) {
     });
   };
 
+  const increaseQty = (id) => {
+    setCart(prev => prev.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i));
+  };
+
+  const decreaseQty = (id) => {
+    setCart(prev => prev.reduce((acc, i) => {
+      if (i.id !== id) return [...acc, i];
+      const nextQty = i.qty - 1;
+      if (nextQty > 0) return [...acc, { ...i, qty: nextQty }];
+      return acc;
+    }, []));
+  };
+
   const removeFromCart = (id) => {
     setCart(prev => prev.filter(i => i.id !== id));
   };
@@ -22,7 +35,7 @@ export function CartProvider({ children }) {
   const clearCart = () => setCart([]);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart }}>
+    <CartContext.Provider value={{ cart, addToCart, increaseQty, decreaseQty, removeFromCart, clearCart }}>
       {children}
     </CartContext.Provider>
   );
