@@ -42,7 +42,7 @@ async function testDbConnection() {
   try {
     const [rows] = await db.query('SELECT 1');
     console.log('✅ MySQL Database connected successfully via XAMPP!');
-    
+
     // Add payment_method column dynamically if it does not exist
     try {
       await db.query("ALTER TABLE tb_orders ADD COLUMN payment_method VARCHAR(50) DEFAULT 'Dana'");
@@ -124,7 +124,7 @@ app.post('/api/menu', upload.single('image'), async (req, res) => {
   try {
     const { name, category_id, price, description } = req.body;
     let imageUrl = req.body.image_url || '';
-    
+
     // If a file was uploaded, construct its URL
     if (req.file) {
       const host = req.get('host');
@@ -146,7 +146,7 @@ app.put('/api/menu/:id', upload.single('image'), async (req, res) => {
   try {
     const { name, category_id, price, description } = req.body;
     let imageUrl = req.body.image_url; // Might be undefined or a preserved string
-    
+
     if (req.file) {
       const host = req.get('host');
       const protocol = req.protocol;
@@ -165,7 +165,7 @@ app.put('/api/menu/:id', upload.single('image'), async (req, res) => {
         [name, category_id, price, description || '', req.params.id]
       );
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -224,20 +224,20 @@ app.put('/api/category/:id', async (req, res) => {
 app.post('/api/admin/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     const [users] = await db.query('SELECT * FROM tb_admin WHERE username = ?', [username]);
-    
+
     if (users.length === 0) {
       return res.status(401).json({ success: false, message: 'Username tidak ditemukan' });
     }
-    
+
     const user = users[0];
-    
+
     // For simple local testing, we verify plain password
     if (password !== user.password) {
       return res.status(401).json({ success: false, message: 'Password salah' });
     }
-    
+
     res.json({
       success: true,
       message: 'Login berhasil',
@@ -274,16 +274,16 @@ app.post('/api/orders', async (req, res) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    
+
     const { tableNo, items, total, customerName, paymentMethod } = req.body;
     const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
-    
+
     // 1. Insert into tb_orders
     await connection.query(
       'INSERT INTO tb_orders (id, table_no, customer_name, total_price, status, payment_method) VALUES (?, ?, ?, ?, ?, ?)',
       [orderId, tableNo, customerName, total, 'pending', paymentMethod || 'Dana']
     );
-    
+
     // 2. Insert order details into tb_order_items
     for (const item of items) {
       await connection.query(
@@ -291,9 +291,9 @@ app.post('/api/orders', async (req, res) => {
         [orderId, item.id, item.qty, item.note || '']
       );
     }
-    
+
     await connection.commit();
-    
+
     const completedOrder = {
       id: orderId,
       tableNo,
@@ -304,10 +304,10 @@ app.post('/api/orders', async (req, res) => {
       paymentMethod: paymentMethod || 'Dana',
       createdAt: new Date()
     };
-    
+
     // Emit real-time update to Kitchen via WebSockets
     io.emit('kitchen_new_order', completedOrder);
-    
+
     res.status(201).json({ success: true, order: completedOrder });
   } catch (error) {
     await connection.rollback();
@@ -477,7 +477,7 @@ app.post('/api/reservations', async (req, res) => {
       'INSERT INTO tb_reservations (name, phone, table_no, reservation_date, reservation_time, status) VALUES (?, ?, ?, ?, ?, ?)',
       [name, phone, table_no, reservation_date, reservation_time, 'pending']
     );
-    
+
     const newRes = {
       id: result.insertId,
       name,
@@ -488,10 +488,10 @@ app.post('/api/reservations', async (req, res) => {
       status: 'pending',
       created_at: new Date()
     };
-    
+
     // Notify admin dashboard in real-time
     io.emit('new_reservation', newRes);
-    
+
     res.status(201).json({ success: true, reservation: newRes });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -506,10 +506,10 @@ app.put('/api/reservations/:id/status', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Status wajib ditentukan.' });
     }
     await db.query('UPDATE tb_reservations SET status = ? WHERE id = ?', [status, req.params.id]);
-    
+
     // Broadcast status change to real-time clients if helpful
     io.emit('reservation_status_changed', { id: req.params.id, status });
-    
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -527,10 +527,28 @@ app.delete('/api/reservations/:id', async (req, res) => {
   }
 });
 
+// ==========================================
+// SERVE FRONTEND (PRODUCTION CPANEL MODE)
+// ==========================================
+// In production, serve the built React frontend from the 'dist' folder
+const frontendPath = path.join(__dirname, 'dist');
+if (fs.existsSync(frontendPath)) {
+  app.use(express.static(frontendPath));
+  // Catch-all route to serve index.html for React Router
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  // Fallback if frontend is not yet built/uploaded
+  app.get('/', (req, res) => {
+    res.send('✅ Quick Order Restaurant API is running successfully. Frontend files (dist) not found.');
+  });
+}
+
 // Real-time connection handler
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
-  
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
   });

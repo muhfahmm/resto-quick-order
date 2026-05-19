@@ -1,4 +1,7 @@
-const API_URL = 'http://localhost:3005/api';
+// Auto-detect Environment: Use local backend for development, and relative path for production
+const API_URL = import.meta.env.PROD 
+  ? '/api' 
+  : 'http://localhost:3005/api';
 
 // Fetch all restaurant menu items
 export async function getMenuItems() {
