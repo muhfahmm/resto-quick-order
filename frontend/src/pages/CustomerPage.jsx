@@ -108,6 +108,11 @@ const CustomerPage = () => {
     setCheckoutState(null);
   };
 
+  const handleIncreaseWithAnim = (e, menuId) => {
+    triggerAddAnimation(e);
+    increaseQty(menuId);
+  };
+
   const triggerPaymentModal = () => {
     if (!tableNumber) {
       setCheckoutState({ error: true, message: 'Silakan gunakan parameter ?table= pada URL untuk memilih nomor meja sebelum checkout.' });
@@ -905,7 +910,7 @@ const CustomerPage = () => {
                               </button>
                               <span className="qty-text">{qty}</span>
                               <button 
-                                onClick={() => increaseQty(menu.id)} 
+                                onClick={(e) => handleIncreaseWithAnim(e, menu.id)} 
                                 className="qty-btn qty-btn-plus"
                               >
                                 +

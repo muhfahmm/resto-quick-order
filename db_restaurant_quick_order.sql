@@ -2,9 +2,8 @@
 -- DATABASE: db_restaurant_quick_order (CLEAN SCHEMA)
 -- Untuk XAMPP MySQL (Tanpa Data Seeder / Bersih Tanpa INSERT INTO)
 -- -------------------------------------------------------------
-
-CREATE DATABASE IF NOT EXISTS `db_restaurant_quick_order`;
-USE `db_restaurant_quick_order`;
+-- CREATE DATABASE IF NOT EXISTS `db_restaurant_quick_order`;
+-- USE `db_restaurant_quick_order`;
 
 -- 1. TABEL: tb_admin (Untuk Akun Masuk Staf & Admin)
 CREATE TABLE IF NOT EXISTS `tb_admin` (
