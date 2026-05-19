@@ -5,7 +5,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col pt-4 shadow-sm">
       <button
         onClick={() => setActiveTab('products')}
-        className={`px-8 py-4 text-left transition-all font-medium ${
+        className={`px-8 py-4 text-left transition-all font-medium cursor-pointer ${
           activeTab === 'products'
             ? 'bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600'
             : 'text-slate-600 hover:bg-slate-50 border-l-4 border-transparent'
@@ -15,7 +15,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
       </button>
       <button
         onClick={() => setActiveTab('categories')}
-        className={`px-8 py-4 text-left transition-all font-medium ${
+        className={`px-8 py-4 text-left transition-all font-medium cursor-pointer ${
           activeTab === 'categories'
             ? 'bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600'
             : 'text-slate-600 hover:bg-slate-50 border-l-4 border-transparent'
@@ -25,7 +25,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
       </button>
       <button
         onClick={() => setActiveTab('orders')}
-        className={`px-8 py-4 text-left transition-all font-medium ${
+        className={`px-8 py-4 text-left transition-all font-medium cursor-pointer ${
           activeTab === 'orders'
             ? 'bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600'
             : 'text-slate-600 hover:bg-slate-50 border-l-4 border-transparent'
@@ -35,7 +35,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
       </button>
       <button
         onClick={() => setActiveTab('qrcodes')}
-        className={`px-8 py-4 text-left transition-all font-medium ${
+        className={`px-8 py-4 text-left transition-all font-medium cursor-pointer ${
           activeTab === 'qrcodes'
             ? 'bg-indigo-50 text-indigo-600 border-l-4 border-indigo-600'
             : 'text-slate-600 hover:bg-slate-50 border-l-4 border-transparent'

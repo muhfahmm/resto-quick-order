@@ -175,6 +175,16 @@ app.delete('/api/category/:id', async (req, res) => {
   }
 });
 
+app.put('/api/category/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    await db.query('UPDATE tb_category SET name = ? WHERE id = ?', [name, req.params.id]);
+    res.json({ success: true, id: req.params.id, name });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // 2. POST: Admin & Kitchen Staff Login Authentication
 app.post('/api/admin/login', async (req, res) => {
   try {
@@ -333,6 +343,16 @@ app.patch('/api/orders/:id/status', async (req, res) => {
   }
 });
 
+app.delete('/api/orders/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM tb_order_items WHERE order_id = ?', [req.params.id]);
+    await db.query('DELETE FROM tb_orders WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Health-check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: "ok", message: "Quick Order Restaurant backend is running." });
@@ -352,6 +372,15 @@ app.get('/api/qrcodes', async (req, res) => {
     res.json(normalized);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/qrcodes/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM tb_qrcodes WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

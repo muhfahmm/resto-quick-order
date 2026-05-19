@@ -9,6 +9,7 @@ const ManageQrcodes = ({
   setQrError,
   qrcodes,
   fetchQrcodes,
+  onOpenDeleteModal,
 }) => {
   return (
     <div className="w-full">
@@ -68,7 +69,7 @@ const ManageQrcodes = ({
                 setQrError(err.message || 'Gagal membuat QR code.');
               }
             }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg cursor-pointer"
           >
             Generate
           </button>
@@ -96,7 +97,7 @@ const ManageQrcodes = ({
                   <a
                     href={item.src}
                     download={`qr_table_${item.table}.png`}
-                    className="inline-flex justify-center items-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+                    className="inline-flex justify-center items-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer"
                   >
                     Download
                   </a>
@@ -106,7 +107,7 @@ const ManageQrcodes = ({
                     )}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex justify-center items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="inline-flex justify-center items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                   >
                     Lihat Meja
                   </a>
@@ -140,7 +141,7 @@ const ManageQrcodes = ({
                       href={qr.qr_image_path}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs text-indigo-600 hover:underline"
+                      className="text-xs text-indigo-600 hover:underline cursor-pointer font-semibold"
                     >
                       View
                     </a>
@@ -152,24 +153,32 @@ const ManageQrcodes = ({
                       className="max-w-full max-h-[260px] object-contain"
                     />
                   </div>
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-between">
-                    <a
-                      href={`http://${window.location.hostname}:5173/?table=${encodeURIComponent(
-                        qr.table_no
-                      )}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex justify-center items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                  <div className="mt-4 flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <a
+                        href={`http://${window.location.hostname}:5173/?table=${encodeURIComponent(
+                          qr.table_no
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 inline-flex justify-center items-center rounded-full border border-slate-300 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer text-center"
+                      >
+                        Lihat Meja
+                      </a>
+                      <a
+                        href={qr.qr_image_path}
+                        download={`qr_table_${qr.table_no}.png`}
+                        className="flex-1 inline-flex justify-center items-center rounded-full bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer text-center"
+                      >
+                        Download
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => onOpenDeleteModal(qr)}
+                      className="w-full text-center rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 py-2 text-sm font-semibold transition-colors cursor-pointer"
                     >
-                      Lihat Meja
-                    </a>
-                    <a
-                      href={qr.qr_image_path}
-                      download={`qr_table_${qr.table_no}.png`}
-                      className="inline-flex justify-center items-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
-                    >
-                      Download
-                    </a>
+                      Delete QR Meja
+                    </button>
                   </div>
                 </div>
               ))}

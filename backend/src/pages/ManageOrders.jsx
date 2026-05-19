@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ManageOrders = ({ orders, updateOrderStatus }) => {
+const ManageOrders = ({ orders, updateOrderStatus, onOpenDeleteModal }) => {
   const safeOrders = Array.isArray(orders) ? orders : [];
 
   return (
@@ -44,8 +44,8 @@ const ManageOrders = ({ orders, updateOrderStatus }) => {
                   <th className="py-3 px-4 font-semibold">Items</th>
                   <th className="py-3 px-4 font-semibold">Total</th>
                   <th className="py-3 px-4 font-semibold">Status</th>
-                  <th className="py-3 px-4 font-semibold">Tindakan</th>
-                  <th className="py-3 px-4 font-semibold">Waktu</th>
+                  <th className="py-3 px-4 font-semibold text-right">Tindakan</th>
+                  <th className="py-3 px-4 font-semibold text-right">Waktu</th>
                 </tr>
               </thead>
               <tbody>
@@ -55,7 +55,7 @@ const ManageOrders = ({ orders, updateOrderStatus }) => {
                     className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                   >
                     <td className="py-3 px-4 font-medium text-slate-800">{order.id}</td>
-                    <td className="py-3 px-4">{order.table_no}</td>
+                    <td className="py-3 px-4 font-semibold">{order.table_no}</td>
                     <td className="py-3 px-4">
                       <div className="space-y-1 text-sm text-slate-700">
                         {(order.items || []).map((item) => (
@@ -73,7 +73,7 @@ const ManageOrders = ({ orders, updateOrderStatus }) => {
                         ))}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-green-600">
+                    <td className="py-3 px-4 font-bold text-emerald-600">
                       Rp {Number(order.total_price).toLocaleString('id-ID')}
                     </td>
                     <td className="py-3 px-4">
@@ -92,35 +92,43 @@ const ManageOrders = ({ orders, updateOrderStatus }) => {
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      {order.status === 'pending' && (
+                      <div className="flex justify-end gap-2 items-center">
+                        {order.status === 'pending' && (
+                          <button
+                            onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                            className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
+                          >
+                            Konfirmasi
+                          </button>
+                        )}
+                        {order.status === 'confirmed' && (
+                          <button
+                            onClick={() => updateOrderStatus(order.id, 'ready')}
+                            className="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-emerald-700 transition-colors cursor-pointer"
+                          >
+                            Makanan Siap
+                          </button>
+                        )}
+                        {order.status === 'ready' && (
+                          <button
+                            onClick={() => updateOrderStatus(order.id, 'completed')}
+                            className="bg-slate-600 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-slate-700 transition-colors cursor-pointer"
+                          >
+                            Selesai
+                          </button>
+                        )}
+                        {order.status === 'completed' && (
+                          <span className="text-slate-500 text-xs font-medium mr-2">Selesai</span>
+                        )}
                         <button
-                          onClick={() => updateOrderStatus(order.id, 'confirmed')}
-                          className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-blue-700 transition-colors"
+                          onClick={() => onOpenDeleteModal(order)}
+                          className="text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer"
                         >
-                          Konfirmasi
+                          Delete
                         </button>
-                      )}
-                      {order.status === 'confirmed' && (
-                        <button
-                          onClick={() => updateOrderStatus(order.id, 'ready')}
-                          className="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-emerald-700 transition-colors"
-                        >
-                          Makanan Siap
-                        </button>
-                      )}
-                      {order.status === 'ready' && (
-                        <button
-                          onClick={() => updateOrderStatus(order.id, 'completed')}
-                          className="bg-slate-600 text-white px-3 py-1 rounded-full text-xs font-semibold hover:bg-slate-700 transition-colors"
-                        >
-                          Selesai
-                        </button>
-                      )}
-                      {order.status === 'completed' && (
-                        <span className="text-slate-500 text-xs">Selesai</span>
-                      )}
+                      </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-500 text-sm">
+                    <td className="py-3 px-4 text-slate-500 text-sm text-right">
                       {new Date(order.created_at).toLocaleString()}
                     </td>
                   </tr>
