@@ -78,17 +78,20 @@ const ManageOrders = ({ orders, updateOrderStatus, onOpenDeleteModal }) => {
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
                           order.status === 'pending'
                             ? 'bg-amber-100 text-amber-700'
                             : order.status === 'confirmed'
-                            ? 'bg-sky-100 text-sky-700'
-                            : order.status === 'ready'
                             ? 'bg-emerald-100 text-emerald-700'
+                            : order.status === 'ready'
+                            ? 'bg-sky-100 text-sky-700'
                             : 'bg-slate-100 text-slate-700'
                         }`}
                       >
-                        {order.status}
+                        {order.status === 'pending' ? 'Pending' :
+                         order.status === 'confirmed' ? 'Dikonfirmasi' :
+                         order.status === 'ready' ? 'Makanan Siap' :
+                         order.status === 'completed' ? 'Selesai' : order.status}
                       </span>
                     </td>
                     <td className="py-3 px-4">

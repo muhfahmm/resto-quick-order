@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS `tb_orders` (
   `table_no` VARCHAR(10) NOT NULL,
   `customer_name` VARCHAR(100) NOT NULL,
   `total_price` DECIMAL(10,2) NOT NULL,
-  `status` ENUM('pending', 'cooking', 'ready', 'completed') NOT NULL DEFAULT 'pending',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -58,5 +58,17 @@ CREATE TABLE IF NOT EXISTS `tb_qrcodes` (
   `table_no` VARCHAR(10) NOT NULL UNIQUE,
   `qr_code_url` VARCHAR(255) NOT NULL,      -- Alamat web, misal: https://rasalegendaris.com/menu?table=05
   `qr_image_path` VARCHAR(255) DEFAULT NULL, -- Path fisik berkas gambar QR Code di server
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6. TABEL: tb_reservations (Untuk Menyimpan Data Booking Meja Pelanggan)
+CREATE TABLE IF NOT EXISTS `tb_reservations` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(100) NOT NULL,
+  `phone` VARCHAR(20) NOT NULL,
+  `table_no` INT NOT NULL,
+  `reservation_date` DATE NOT NULL,
+  `reservation_time` TIME NOT NULL,
+  `status` VARCHAR(20) DEFAULT 'pending',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

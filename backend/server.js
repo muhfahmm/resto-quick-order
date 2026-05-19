@@ -50,6 +50,33 @@ async function testDbConnection() {
     } catch (err) {
       // Ignored if column already exists
     }
+
+    // Modify status column dynamically from ENUM to VARCHAR(20) to support 'confirmed' status
+    try {
+      await db.query("ALTER TABLE tb_orders MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'pending'");
+      console.log('✅ Modified status column of tb_orders to VARCHAR(20) successfully.');
+    } catch (err) {
+      console.error('⚠️ Failed to alter status column of tb_orders:', err.message);
+    }
+
+    // Create tb_reservations table dynamically if it does not exist
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS tb_reservations (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          phone VARCHAR(20) NOT NULL,
+          table_no INT NOT NULL,
+          reservation_date DATE NOT NULL,
+          reservation_time TIME NOT NULL,
+          status VARCHAR(20) DEFAULT 'pending',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+      console.log('✅ Created tb_reservations table successfully.');
+    } catch (err) {
+      console.error('⚠️ Failed to create tb_reservations table:', err.message);
+    }
   } catch (error) {
     console.error('\n⚠️  WARNING: Could not connect to MySQL database!');
     console.error('👉 Please make sure Apache and MySQL are running in your XAMPP Control Panel.');
@@ -420,6 +447,81 @@ app.get('/api/qrcode/:table', async (req, res) => {
 
     res.set('Content-Type', 'image/png');
     res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
+// TABLE RESERVATIONS API ENDPOINTS
+// ==========================================
+
+// 1. GET: Fetch all reservations for Admin Dashboard
+app.get('/api/reservations', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM tb_reservations ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. POST: Create a new reservation from Customer Portal
+app.post('/api/reservations', async (req, res) => {
+  try {
+    const { name, phone, table_no, reservation_date, reservation_time } = req.body;
+    if (!name || !phone || !table_no || !reservation_date || !reservation_time) {
+      return res.status(400).json({ success: false, message: 'Semua kolom data reservasi wajib diisi.' });
+    }
+    const [result] = await db.query(
+      'INSERT INTO tb_reservations (name, phone, table_no, reservation_date, reservation_time, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, phone, table_no, reservation_date, reservation_time, 'pending']
+    );
+    
+    const newRes = {
+      id: result.insertId,
+      name,
+      phone,
+      table_no,
+      reservation_date,
+      reservation_time,
+      status: 'pending',
+      created_at: new Date()
+    };
+    
+    // Notify admin dashboard in real-time
+    io.emit('new_reservation', newRes);
+    
+    res.status(201).json({ success: true, reservation: newRes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. PUT: Update reservation status (Confirm / Cancel)
+app.put('/api/reservations/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status wajib ditentukan.' });
+    }
+    await db.query('UPDATE tb_reservations SET status = ? WHERE id = ?', [status, req.params.id]);
+    
+    // Broadcast status change to real-time clients if helpful
+    io.emit('reservation_status_changed', { id: req.params.id, status });
+    
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. DELETE: Delete a reservation
+app.delete('/api/reservations/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM tb_reservations WHERE id = ?', [req.params.id]);
+    io.emit('reservation_deleted', { id: req.params.id });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

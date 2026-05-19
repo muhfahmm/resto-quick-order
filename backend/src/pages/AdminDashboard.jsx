@@ -5,6 +5,7 @@ import ManageCategory from './ManageCategory';
 import ManageProducts from './ManageProducts';
 import ManageOrders from './ManageOrders';
 import ManageQrcodes from './ManageQrcodes';
+import ManageReservations from './ManageReservations';
 
 // Modal imports
 import EditProductModal from '../modals/EditProductModal';
@@ -23,6 +24,7 @@ const AdminDashboard = () => {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [qrcodes, setQrcodes] = useState([]);
+  const [reservations, setReservations] = useState([]);
   
   // Form/Utility States
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -55,14 +57,16 @@ const AdminDashboard = () => {
     produk: 'products',
     kategori: 'categories',
     pesanan: 'orders',
-    qrcode: 'qrcodes'
+    qrcode: 'qrcodes',
+    reservasi: 'reservations'
   };
 
   const revTabMap = {
     products: 'produk',
     categories: 'kategori',
     orders: 'pesanan',
-    qrcodes: 'qrcode'
+    qrcodes: 'qrcode',
+    reservations: 'reservasi'
   };
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -77,6 +81,7 @@ const AdminDashboard = () => {
     fetchCategories();
     fetchQrcodes();
     fetchOrders();
+    fetchReservations();
   }, []);
 
   // Sync activeTab to URL and localStorage
@@ -139,6 +144,16 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchReservations = async () => {
+    try {
+      const res = await fetch(`http://${window.location.hostname}:3005/api/reservations`);
+      const data = await res.json();
+      setReservations(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const updateOrderStatus = async (orderId, status) => {
     try {
       await fetch(`http://${window.location.hostname}:3005/api/orders/${orderId}/status`, {
@@ -149,6 +164,32 @@ const AdminDashboard = () => {
       fetchOrders();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const updateReservationStatus = async (resId, status) => {
+    try {
+      await fetch(`http://${window.location.hostname}:3005/api/reservations/${resId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      fetchReservations();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteReservation = async (resId) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus data reservasi ini secara permanen dari database?')) {
+      try {
+        await fetch(`http://${window.location.hostname}:3005/api/reservations/${resId}`, {
+          method: 'DELETE'
+        });
+        fetchReservations();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -280,7 +321,12 @@ const AdminDashboard = () => {
       </nav>
 
       <div className="flex" style={{ minHeight: 'calc(100vh - 64px)' }}>
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          pendingOrdersCount={orders.filter(o => o.status === 'pending').length}
+          pendingReservationsCount={reservations.filter(r => r.status === 'pending').length}
+        />
 
         <div className="p-8 flex-1">
           {activeTab === 'categories' && (
@@ -346,6 +392,14 @@ const AdminDashboard = () => {
                 setSelectedQrcodeForDelete(qrcode);
                 setIsDeleteQrcodeOpen(true);
               }}
+            />
+          )}
+
+          {activeTab === 'reservations' && (
+            <ManageReservations
+              reservations={reservations}
+              updateReservationStatus={updateReservationStatus}
+              onDeleteReservation={handleDeleteReservation}
             />
           )}
         </div>

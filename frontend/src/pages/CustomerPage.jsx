@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import CartDrawer from '../components/CartDrawer';
 import PaymentConfirmationModal from '../modals/PaymentConfirmationModal';
+import SuccessOrderModal from '../modals/SuccessOrderModal';
 
 const CustomerPage = () => {
   const [menus, setMenus] = useState([]);
@@ -10,13 +11,26 @@ const CustomerPage = () => {
   const [tableNumber, setTableNumber] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutState, setCheckoutState] = useState(null);
-  const [activeView, setActiveView] = useState('menu');
+  const [activeView, setActiveView] = useState('menu'); // 'menu', 'history', 'reservation'
   const [historyOrders, setHistoryOrders] = useState([]);
+  const [localReservations, setLocalReservations] = useState([]);
+  const [historySubTab, setHistorySubTab] = useState('orders'); // 'orders', 'reservations'
 
   // Modal and Animation States
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [flyingParticles, setFlyingParticles] = useState([]);
   const [cartBouncing, setCartBouncing] = useState(false);
+
+  // Reservation Form State
+  const [resName, setResName] = useState('');
+  const [resPhone, setResPhone] = useState('');
+  const [resTable, setResTable] = useState(null);
+  const [resDate, setResDate] = useState('');
+  const [resTime, setResTime] = useState('18:00');
+  const [resState, setResState] = useState(null); // { success: boolean, message: string, loading: boolean }
+  const [qrcodes, setQrcodes] = useState([]);
+  const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
 
   const { cart, addToCart, removeFromCart, increaseQty, decreaseQty, clearCart } = useCart();
 
@@ -28,6 +42,7 @@ const CustomerPage = () => {
     }
 
     loadHistory();
+    loadLocalReservations();
 
     fetch(`http://${window.location.hostname}:3005/api/menu`)
       .then(res => res.json())
@@ -39,6 +54,25 @@ const CustomerPage = () => {
         console.error(err);
         setLoading(false);
       });
+
+    fetch(`http://${window.location.hostname}:3005/api/qrcodes`)
+      .then(res => res.json())
+      .then(data => {
+        setQrcodes(data);
+      })
+      .catch(err => {
+        console.error(err);
+      });
+
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.custom-dropdown-container')) {
+        setTimeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+    };
   }, []);
 
   const loadHistory = () => {
@@ -49,6 +83,16 @@ const CustomerPage = () => {
   const saveHistory = (orders) => {
     localStorage.setItem('quickorder_history', JSON.stringify(orders));
     setHistoryOrders(orders);
+  };
+
+  const loadLocalReservations = () => {
+    const saved = JSON.parse(localStorage.getItem('quickorder_reservations') || '[]');
+    setLocalReservations(saved);
+  };
+
+  const saveLocalReservations = (resList) => {
+    localStorage.setItem('quickorder_reservations', JSON.stringify(resList));
+    setLocalReservations(resList);
   };
 
   const syncHistoryStatus = async () => {
@@ -67,9 +111,92 @@ const CustomerPage = () => {
     }
   };
 
+  const syncReservationsStatus = async () => {
+    if (localReservations.length === 0) return;
+    try {
+      const res = await fetch(`http://${window.location.hostname}:3005/api/reservations`);
+      const data = await res.json();
+      const statusMap = Object.fromEntries(data.map(r => [r.id, r.status]));
+      const updated = localReservations.map(r => ({
+        ...r,
+        status: statusMap[r.id] || r.status
+      }));
+      saveLocalReservations(updated);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleOpenHistory = () => {
     setActiveView('history');
     syncHistoryStatus();
+    syncReservationsStatus();
+  };
+
+  const handleDeleteHistoryItem = (orderId) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus pesanan ini dari riwayat Anda?')) {
+      const updated = historyOrders.filter(order => order.id !== orderId);
+      saveHistory(updated);
+    }
+  };
+
+  const handleDeleteReservationItem = (resId) => {
+    if (window.confirm('Apakah Anda yakin ingin membatalkan/menghapus reservasi tempat ini?')) {
+      const updated = localReservations.filter(r => r.id !== resId);
+      saveLocalReservations(updated);
+    }
+  };
+
+  const handleCreateReservation = async (e) => {
+    e.preventDefault();
+    if (!resName || !resPhone || !resTable || !resDate || !resTime) {
+      setResState({ success: false, message: 'Semua kolom wajib diisi, termasuk memilih nomor meja.' });
+      return;
+    }
+    setResState({ loading: true, message: 'Mengirim permohonan reservasi...' });
+
+    try {
+      const response = await fetch(`http://${window.location.hostname}:3005/api/reservations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: resName,
+          phone: resPhone,
+          table_no: resTable,
+          reservation_date: resDate,
+          reservation_time: resTime
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Gagal membuat reservasi.');
+      }
+
+      const newRes = {
+        id: data.reservation.id,
+        name: resName,
+        phone: resPhone,
+        table_no: resTable,
+        reservation_date: resDate,
+        reservation_time: resTime,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedReservations = [newRes, ...localReservations];
+      saveLocalReservations(updatedReservations);
+
+      setResState({ success: true, message: `Reservasi Meja ${resTable} sukses terkirim! Silakan tunggu konfirmasi admin.` });
+      
+      // Reset Form
+      setResName('');
+      setResPhone('');
+      setResTable(null);
+      setResDate('');
+    } catch (err) {
+      console.error(err);
+      setResState({ success: false, message: err.message || 'Gagal mengirim permohonan reservasi.' });
+    }
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
@@ -160,7 +287,8 @@ const CustomerPage = () => {
       saveHistory([newOrder, ...historyOrders]);
       clearCart();
       setPaymentModalOpen(false);
-      setCheckoutState({ error: false, message: 'Pesanan berhasil dikirim! Silakan tunggu di meja.' });
+      setSuccessModalOpen(true);
+      setCheckoutState(null);
     } catch (err) {
       console.error(err);
       setCheckoutState({ error: true, message: err.message || 'Terjadi kesalahan saat checkout.' });
@@ -363,13 +491,13 @@ const CustomerPage = () => {
           bottom: 20px;
           left: 50%;
           transform: translateX(-50%);
-          width: 90%;
-          max-width: 340px;
+          width: 92%;
+          max-width: 380px;
           background-color: rgba(15, 23, 42, 0.94);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
           border-radius: 28px;
-          padding: 6px 10px;
+          padding: 6px 8px;
           box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
           z-index: 999;
           justify-content: space-around;
@@ -396,8 +524,14 @@ const CustomerPage = () => {
           cursor: pointer;
           gap: 3px;
           transition: all 0.2s ease;
-          padding: 8px 24px;
+          padding: 8px 12px;
           border-radius: 20px;
+          flex: 1;
+        }
+
+        .mobile-nav-item svg {
+          width: 20px;
+          height: 20px;
         }
 
         .mobile-nav-item.active {
@@ -468,17 +602,6 @@ const CustomerPage = () => {
           gap: 4px;
         }
 
-        .category-badge {
-          background-color: #fff3f0;
-          color: #ff5722;
-          padding: 2px 8px !important;
-          border-radius: 6px !important;
-          font-size: 0.68rem !important;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-        }
-
         .price-tag {
           font-size: 0.95rem !important;
           font-weight: 800;
@@ -494,18 +617,6 @@ const CustomerPage = () => {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-        }
-
-        .menu-desc {
-          color: #64748b;
-          font-size: 0.78rem !important;
-          margin-bottom: 10px !important;
-          flex-grow: 1;
-          line-height: 1.4;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
         }
 
         .order-btn {
@@ -716,31 +827,559 @@ const CustomerPage = () => {
           box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2) !important;
         }
 
-        /* History view styling */
-        .history-card {
+        /* History sub tabs layout */
+        .history-subtabs {
+          display: flex;
+          justify-content: center;
+          gap: 0.5rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .subtab-button {
+          padding: 8px 16px;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
           background-color: #ffffff;
-          border-radius: 20px;
-          padding: 1.5rem !important;
-          box-shadow: 0 10px 25px rgba(15, 23, 42, 0.03);
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: #475569;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .subtab-button.active {
+          background-color: #0f766e;
+          color: #ffffff;
+          border-color: #0f766e;
+          box-shadow: 0 4px 12px rgba(15, 118, 110, 0.15);
+        }
+
+        /* Modern Card-Based History Layout Styles (No Scroll) */
+        .history-list-container {
+          width: 100%;
+        }
+
+        .history-empty-state {
+          text-align: center;
+          padding: 3.5rem 1.5rem;
+          color: #64748b;
+          font-weight: 600;
+          background-color: #ffffff;
+          border-radius: 24px;
           border: 1px solid rgba(15, 23, 42, 0.05);
         }
 
-        .history-table {
+        .history-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
           width: 100%;
-          border-collapse: collapse;
-          font-size: 0.88rem !important;
         }
 
-        .history-table th {
+        @media (max-width: 768px) {
+          .history-cards-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+        }
+
+        .history-order-card {
+          background-color: #ffffff;
+          border-radius: 24px;
+          padding: 1.25rem;
+          box-shadow: 0 10px 25px rgba(15, 23, 42, 0.01);
+          border: 1px solid rgba(15, 23, 42, 0.05);
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          transition: all 0.25s ease;
+        }
+
+        .history-order-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 14px 35px rgba(15, 23, 42, 0.04);
+        }
+
+        .history-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px dashed #e2e8f0;
+          padding-bottom: 0.85rem;
+          margin-bottom: 0.85rem;
+        }
+
+        .order-meta-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .order-id-label {
+          font-size: 1.05rem;
+          font-weight: 850;
+          color: #0f172a;
+          letter-spacing: -0.01em;
+        }
+
+        .order-table-badge {
+          background-color: #eff6ff;
+          color: #2563eb;
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-size: 0.72rem;
+          font-weight: 800;
+          text-transform: uppercase;
+        }
+
+        .order-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .order-status-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 3px 10px;
+          border-radius: 999px;
+          font-size: 0.7rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        .order-status-badge.status-pending {
+          background-color: #fef3c7;
+          color: #b45309;
+        }
+
+        .order-status-badge.status-cooking,
+        .order-status-badge.status-ready {
+          background-color: #e0f2fe;
+          color: #0369a1;
+        }
+
+        .order-status-badge.status-confirmed {
+          background-color: #dcfce7;
+          color: #15803d;
+        }
+
+        .order-status-badge.status-completed {
+          background-color: #f1f5f9;
+          color: #475569;
+        }
+
+        .order-status-badge.status-cancelled {
+          background-color: #fde8e8;
+          color: #9b1c1c;
+        }
+
+        .order-delete-btn {
+          background: #fef2f2;
+          color: #ef4444;
+          border: none;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .order-delete-btn:hover {
+          background: #fee2e2;
+          transform: scale(1.05);
+        }
+
+        .order-delete-btn svg {
+          width: 16px;
+          height: 16px;
+        }
+
+        .history-card-body {
+          flex: 1;
+          margin-bottom: 0.85rem;
+        }
+
+        .history-items-title {
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-bottom: 0.5rem;
+        }
+
+        .history-items-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .history-item-row-detail {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.88rem;
+        }
+
+        .history-item-left {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .history-item-qty-badge {
+          background-color: #f1f5f9;
+          color: #475569;
+          padding: 1px 5px;
+          border-radius: 4px;
+          font-size: 0.72rem;
+          font-weight: 750;
+        }
+
+        .history-item-name-text {
+          color: #334155;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .history-item-price-val {
+          color: #1e293b;
+          font-weight: 700;
+        }
+
+        .history-card-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background-color: #f8fafc;
+          padding: 0.75rem 1rem;
+          border-radius: 16px;
+          border: 1px solid #f1f5f9;
+        }
+
+        .payment-method-pill {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          background-color: #ffffff;
+          border: 1px solid #e2e8f0;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 0.78rem;
           font-weight: 700;
           color: #475569;
-          border-bottom: 2px solid #f1f5f9;
-          padding: 10px !important;
         }
 
-        .history-table td {
-          padding: 12px 10px !important;
-          border-bottom: 1px solid #f1f5f9;
+        .order-total-block {
+          text-align: right;
+        }
+
+        .order-total-title {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          display: block;
+        }
+
+        .order-total-value {
+          font-size: 1.1rem;
+          font-weight: 850;
+          color: #0f766e;
+        }
+
+        .order-time-stamp {
+          font-size: 0.72rem;
+          color: #94a3b8;
+          margin-top: 0.65rem;
+          text-align: right;
+          font-weight: 500;
+        }
+
+        /* Table Reservations Form Styling */
+        .reservation-box {
+          background-color: #ffffff;
+          border-radius: 24px;
+          padding: 2rem;
+          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.03);
+          border: 1px solid rgba(15, 23, 42, 0.05);
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        @media (max-width: 768px) {
+          .reservation-box {
+            padding: 1.25rem;
+          }
+        }
+
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          margin-bottom: 1.25rem;
+        }
+
+        @media (max-width: 768px) {
+          .form-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-label {
+          font-size: 0.85rem;
+          font-weight: 750;
+          color: #475569;
+        }
+
+        .form-input {
+          padding: 10px 14px;
+          border-radius: 12px;
+          border: 1px solid #cbd5e1;
+          font-size: 0.95rem;
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+          border-color: #ff5722;
+          box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.12);
+        }
+
+        /* Interactive Table Grid Selector */
+        .table-selector-section {
+          margin-top: 1rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .table-select-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 12px;
+          margin-top: 8px;
+        }
+
+        @media (max-width: 768px) {
+          .table-select-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+          }
+        }
+
+        .table-select-card {
+          background-color: #f8fafc;
+          border: 2px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 12px;
+          text-align: center;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .table-select-card:hover {
+          background-color: #ffffff;
+          border-color: #ff5722;
+          transform: translateY(-2px);
+        }
+
+        .table-select-card.selected {
+          background-color: #fff3f0;
+          border-color: #ff5722;
+          box-shadow: 0 6px 16px rgba(255, 87, 34, 0.15);
+          transform: scale(1.05);
+        }
+
+        .table-select-card-num {
+          font-size: 1.15rem;
+          font-weight: 850;
+          color: #0f172a;
+        }
+
+        .table-select-card.selected .table-select-card-num {
+          color: #ff5722;
+        }
+
+        .table-select-card-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+        }
+
+        .res-submit-btn {
+          width: 100%;
+          padding: 0.95rem;
+          border-radius: 14px;
+          border: none;
+          background-color: #ff5722;
+          color: white;
+          font-weight: 750;
+          font-size: 1rem;
+          cursor: pointer;
+          box-shadow: 0 4px 14px rgba(255, 87, 34, 0.2);
+          transition: all 0.2s ease;
+        }
+
+        .res-submit-btn:hover:not(:disabled) {
+          background-color: #e64a19;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(255, 87, 34, 0.3);
+        }
+
+        .res-submit-btn:disabled {
+          background-color: #cbd5e1;
+          color: #94a3b8;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .res-status-banner {
+          margin-top: 1rem;
+          padding: 10px 14px;
+          border-radius: 12px;
+          font-size: 0.88rem;
+          font-weight: 600;
+          text-align: center;
+        }
+
+        .res-status-banner.success {
+          background-color: #f0fdf4;
+          color: #15803d;
+          border: 1px solid #bbf7d0;
+        }
+
+        .res-status-banner.error {
+          background-color: #fef2f2;
+          color: #b91c1c;
+          border: 1px solid #fecaca;
+        }
+
+        /* Custom Time Dropdown Styling */
+        .custom-dropdown-container {
+          position: relative;
+          width: 100%;
+        }
+
+        .custom-dropdown-trigger {
+          width: 100%;
+          padding: 10px 14px;
+          border-radius: 12px;
+          border: 1px solid #cbd5e1;
+          background-color: #ffffff;
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: #1e293b;
+          text-align: left;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          transition: all 0.22s ease;
+          outline: none;
+        }
+
+        .custom-dropdown-trigger:focus {
+          border-color: #ff5722;
+          box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.12);
+        }
+
+        .dropdown-chevron {
+          width: 16px;
+          height: 16px;
+          color: #64748b;
+          transition: transform 0.2s ease;
+        }
+
+        .dropdown-chevron.open {
+          transform: rotate(180deg);
+          color: #ff5722;
+        }
+
+        .custom-dropdown-menu {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          width: 100%;
+          background-color: rgba(255, 255, 255, 0.96);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-radius: 16px;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+          max-height: 200px;
+          overflow-y: auto;
+          z-index: 1000;
+          padding: 6px;
+          animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .custom-dropdown-menu::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-dropdown-menu::-webkit-scrollbar-thumb {
+          background-color: #cbd5e1;
+          border-radius: 99px;
+        }
+
+        @keyframes slideDownFade {
+          from {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .custom-dropdown-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 12px;
+          border-radius: 10px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #475569;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .custom-dropdown-item:hover {
+          background-color: #fff3f0;
+          color: #ff5722;
+        }
+
+        .custom-dropdown-item.active {
+          background-color: #fff3f0;
+          color: #ff5722;
+        }
+
+        .check-icon {
+          width: 14px;
+          height: 14px;
+          color: #ff5722;
         }
 
         .footer {
@@ -761,14 +1400,14 @@ const CustomerPage = () => {
             className={`nav-link-btn ${activeView === 'menu' ? 'active' : ''}`}
             onClick={() => setActiveView('menu')}
           >
-            Home
+            Menu
           </button>
           <button
             type="button"
-            className={`nav-link-btn ${activeView === 'menu' ? 'active' : ''}`}
-            onClick={() => setActiveView('menu')}
+            className={`nav-link-btn ${activeView === 'reservation' ? 'active' : ''}`}
+            onClick={() => setActiveView('reservation')}
           >
-            Menu
+            Reservasi
           </button>
           <button
             type="button"
@@ -796,73 +1435,397 @@ const CustomerPage = () => {
         </div>
       </header>
 
-      <main id="menu" className="main-section">
-        {tableNumber && (
-          <div className="table-banner">
-            <span className="table-label">Meja</span>
-            <span className="table-number">{tableNumber}</span>
+      <main className="main-section">
+        {tableNumber && activeView === 'menu' && (
+          <div className="table-banner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span className="table-label">Meja</span>
+              <span className="table-number">{tableNumber}</span>
+            </div>
+            <button 
+              onClick={() => {
+                setTableNumber('');
+                const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+                window.history.pushState({ path: newUrl }, '', newUrl);
+              }}
+              style={{
+                background: '#f1f5f9',
+                color: '#475569',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: 750,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              🔄 Ubah Meja
+            </button>
           </div>
         )}
 
-        {activeView === 'history' ? (
+        {!tableNumber && activeView === 'menu' && (
+          <div className="table-selector-card-container" style={{
+            background: 'white',
+            borderRadius: '24px',
+            padding: '2rem',
+            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.05)',
+            border: '1px solid rgba(15, 23, 42, 0.05)',
+            marginBottom: '2rem',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>
+              📍 Silakan Pilih Meja Anda
+            </h3>
+            <p style={{ margin: '0 0 1.5rem 0', color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>
+              Pilih nomor meja tempat Anda duduk untuk memesan makanan langsung ke dapur.
+            </p>
+            {qrcodes.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#e11d48', fontWeight: 700, padding: '1rem', background: '#fff1f2', borderRadius: '12px' }}>
+                ⚠️ Belum ada meja yang terdaftar di admin panel.
+              </div>
+            ) : (
+              <div className="table-select-grid" style={{ marginTop: '1rem' }}>
+                {qrcodes
+                  .map(qr => qr.table_no)
+                  .filter(Boolean)
+                  .sort((a, b) => {
+                    const numA = parseInt(a, 10);
+                    const numB = parseInt(b, 10);
+                    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+                  })
+                  .map(tbl => (
+                    <div 
+                      key={tbl} 
+                      className="table-select-card"
+                      style={{ border: '2px solid #e2e8f0', background: '#f8fafc' }}
+                      onClick={() => {
+                        setTableNumber(tbl);
+                        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?table=${tbl}`;
+                        window.history.pushState({ path: newUrl }, '', newUrl);
+                      }}
+                    >
+                      <span style={{ fontSize: '1.25rem' }}>🪑</span>
+                      <span className="table-select-card-num">{tbl}</span>
+                      <span className="table-select-card-label">Meja</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 1. RESERVATION VIEW */}
+        {activeView === 'reservation' && (
           <>
-            <h2 className="section-title">Riwayat Pesanan</h2>
-            <div className="history-card">
-              {historyOrders.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#64748b' }}>Belum ada riwayat pesanan.</p>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="history-table">
-                    <thead>
-                      <tr>
-                        <th>Order ID</th>
-                        <th>Meja</th>
-                        <th>Items</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                        <th>Waktu</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyOrders.map(order => (
-                        <tr key={order.id}>
-                          <td style={{ fontWeight: 600 }}>{order.id}</td>
-                          <td>{order.tableNo}</td>
-                          <td>
-                            <div style={{ display: 'grid', gap: '4px' }}>
-                              {order.items.map(item => (
-                                <div key={`${order.id}-${item.id}`} style={{ display: 'flex', justifycontent: 'space-between', color: '#475569', gap: '12px' }}>
-                                  <span>{item.qty} x {item.name}</span>
-                                  <span>Rp {Number(item.price).toLocaleString('id-ID')}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 700, color: '#0f766e' }}>Rp {Number(order.total).toLocaleString('id-ID')}</td>
-                          <td>
-                            <span style={{
-                              display: 'inline-flex',
-                              padding: '2px 8px',
-                              borderRadius: '999px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              backgroundColor: order.status === 'pending' ? '#fef3c7' : order.status === 'confirmed' ? '#e0f2fe' : order.status === 'ready' ? '#dcfce7' : '#f1f5f9',
-                              color: order.status === 'pending' ? '#b45309' : order.status === 'confirmed' ? '#0369a1' : order.status === 'ready' ? '#15803d' : '#475569'
-                            }}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td style={{ color: '#64748b', fontSize: '0.8rem' }}>{new Date(order.createdAt).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <h2 className="section-title">Reservasi Tempat & Meja</h2>
+            <div className="reservation-box">
+              <form onSubmit={handleCreateReservation}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Nama Lengkap</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Masukkan nama Anda" 
+                      value={resName} 
+                      onChange={(e) => setResName(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Nomor WhatsApp / HP</label>
+                    <input 
+                      type="tel" 
+                      className="form-input" 
+                      placeholder="Contoh: 08123456789" 
+                      value={resPhone} 
+                      onChange={(e) => setResPhone(e.target.value)} 
+                      required 
+                    />
+                  </div>
                 </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Pilih Tanggal Reservasi</label>
+                    <input 
+                      type="date" 
+                      className="form-input" 
+                      value={resDate} 
+                      onChange={(e) => setResDate(e.target.value)} 
+                      min={new Date().toISOString().split('T')[0]}
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Pilih Jam / Waktu</label>
+                    <div className="custom-dropdown-container">
+                      <button
+                        type="button"
+                        className="custom-dropdown-trigger"
+                        onClick={() => setTimeDropdownOpen(!timeDropdownOpen)}
+                      >
+                        <span>🕒 {resTime} WIB</span>
+                        <svg 
+                          className={`dropdown-chevron ${timeDropdownOpen ? 'open' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {timeDropdownOpen && (
+                        <div className="custom-dropdown-menu">
+                          {['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'].map(t => (
+                            <div
+                              key={t}
+                              className={`custom-dropdown-item ${resTime === t ? 'active' : ''}`}
+                              onClick={() => {
+                                setResTime(t);
+                                setTimeDropdownOpen(false);
+                              }}
+                            >
+                              <span>🕒 {t} WIB</span>
+                              {resTime === t && (
+                                <svg className="check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="table-selector-section">
+                  <label className="form-label">Pilih Meja Restoran</label>
+                  {qrcodes.length === 0 ? (
+                    <div className="res-status-banner error" style={{ margin: '1rem 0', textAlign: 'center' }}>
+                      ⚠️ Belum ada meja yang terdaftar untuk reservasi. Silakan hubungi admin.
+                    </div>
+                  ) : (
+                    <div className="table-select-grid">
+                      {qrcodes
+                        .map(qr => qr.table_no)
+                        .filter(Boolean)
+                        .sort((a, b) => {
+                          const numA = parseInt(a, 10);
+                          const numB = parseInt(b, 10);
+                          if (!isNaN(numA) && !isNaN(numB)) {
+                            return numA - numB;
+                          }
+                          return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+                        })
+                        .map(tbl => (
+                          <div 
+                            key={tbl} 
+                            className={`table-select-card ${resTable === tbl ? 'selected' : ''}`}
+                            onClick={() => setResTable(tbl)}
+                          >
+                            <span style={{ fontSize: '1.25rem' }}>🪑</span>
+                            <span className="table-select-card-num">{tbl}</span>
+                            <span className="table-select-card-label">Meja</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="res-submit-btn" 
+                  disabled={resState?.loading}
+                >
+                  {resState?.loading ? 'Mengirim permohonan...' : 'Kirim Reservasi Tempat'}
+                </button>
+
+                {resState && !resState.loading && (
+                  <div className={`res-status-banner ${resState.success ? 'success' : 'error'}`}>
+                    {resState.message}
+                  </div>
+                )}
+              </form>
+            </div>
+          </>
+        )}
+
+        {/* 2. HISTORY VIEW */}
+        {activeView === 'history' && (
+          <>
+            <h2 className="section-title">Riwayat Saya</h2>
+            
+            {/* History Sub Tabs */}
+            <div className="history-subtabs">
+              <button 
+                className={`subtab-button ${historySubTab === 'orders' ? 'active' : ''}`}
+                onClick={() => setHistorySubTab('orders')}
+              >
+                📋 Pesanan Makanan ({historyOrders.length})
+              </button>
+              <button 
+                className={`subtab-button ${historySubTab === 'reservations' ? 'active' : ''}`}
+                onClick={() => setHistorySubTab('reservations')}
+              >
+                🪑 Reservasi Meja ({localReservations.length})
+              </button>
+            </div>
+
+            <div className="history-list-container">
+              {historySubTab === 'orders' ? (
+                historyOrders.length === 0 ? (
+                  <div className="history-empty-state">
+                    <span style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}>📋</span>
+                    <p>Belum ada riwayat pesanan makanan.</p>
+                  </div>
+                ) : (
+                  <div className="history-cards-grid">
+                    {historyOrders.map(order => (
+                      <div key={order.id} className="history-order-card">
+                        <div className="history-card-header">
+                          <div className="order-meta-info">
+                            <span className="order-id-label">#{order.id}</span>
+                            <span className="order-table-badge">Meja {order.tableNo}</span>
+                          </div>
+                          <div className="order-header-actions">
+                            <span className={`order-status-badge status-${order.status || 'pending'}`}>
+                              {order.status === 'pending' ? 'Menunggu Konfirmasi' :
+                               order.status === 'confirmed' ? 'Dikonfirmasi' :
+                               order.status === 'ready' ? 'Makanan Siap' :
+                               order.status === 'completed' ? 'Selesai' : order.status}
+                            </span>
+                            <button 
+                              className="order-delete-btn" 
+                              onClick={() => handleDeleteHistoryItem(order.id)}
+                              title="Hapus riwayat pesanan"
+                            >
+                              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="history-card-body">
+                          <div className="history-items-title">Detail Item</div>
+                          <div className="history-items-list">
+                            {order.items.map((item, idx) => (
+                              <div key={`${order.id}-${item.id}-${idx}`} className="history-item-row-detail">
+                                <div className="history-item-left">
+                                  <span className="history-item-qty-badge">{item.qty}x</span>
+                                  <span className="history-item-name-text">{item.name}</span>
+                                </div>
+                                <span className="history-item-price-val">
+                                  Rp {Number(item.qty * parseFloat(item.price || 0)).toLocaleString('id-ID')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="history-card-footer">
+                          <div className="payment-method-pill">
+                            <span className="payment-method-icon">
+                              {order.paymentMethod === 'Dana' ? '👛' : 
+                               order.paymentMethod === 'Ovo' ? '💜' : 
+                               order.paymentMethod === 'GoPay' ? '📱' : '💵'}
+                            </span>
+                            <span className="payment-method-name">
+                              {order.paymentMethod || 'Dana'}
+                            </span>
+                          </div>
+                          <div className="order-total-block">
+                            <span className="order-total-title">Total</span>
+                            <span className="order-total-value">
+                              Rp {Number(order.total).toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="order-time-stamp">
+                          Dibuat pada: {new Date(order.createdAt).toLocaleString('id-ID')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                localReservations.length === 0 ? (
+                  <div className="history-empty-state">
+                    <span style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block' }}>🪑</span>
+                    <p>Belum ada riwayat booking meja.</p>
+                  </div>
+                ) : (
+                  <div className="history-cards-grid">
+                    {localReservations.map(res => (
+                      <div key={res.id} className="history-order-card" style={{ borderLeft: '5px solid #ff5722' }}>
+                        <div className="history-card-header">
+                          <div className="order-meta-info">
+                            <span className="order-id-label" style={{ color: '#ff5722' }}>Meja {res.table_no}</span>
+                          </div>
+                          <div className="order-header-actions">
+                            <span className={`order-status-badge status-${res.status || 'pending'}`}>
+                              {res.status === 'pending' ? 'Menunggu Konfirmasi' :
+                               res.status === 'confirmed' ? 'Dikonfirmasi' :
+                               res.status === 'cancelled' ? 'Dibatalkan' : res.status}
+                            </span>
+                            <button 
+                              className="order-delete-btn" 
+                              onClick={() => handleDeleteReservationItem(res.id)}
+                              title="Batalkan reservasi"
+                            >
+                              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="history-card-body">
+                          <div className="history-items-title">Detail Reservasi</div>
+                          <div className="history-items-list" style={{ gap: '8px' }}>
+                            <div className="history-item-row-detail">
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>Atas Nama</span>
+                              <span style={{ fontWeight: 700, color: '#334155' }}>{res.name}</span>
+                            </div>
+                            <div className="history-item-row-detail">
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>Tanggal</span>
+                              <span style={{ fontWeight: 750, color: '#1e293b' }}>{res.reservation_date}</span>
+                            </div>
+                            <div className="history-item-row-detail">
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>Waktu / Jam</span>
+                              <span style={{ fontWeight: 750, color: '#1e293b' }}>{res.reservation_time} WIB</span>
+                            </div>
+                            <div className="history-item-row-detail">
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>No. WhatsApp</span>
+                              <span style={{ fontWeight: 700, color: '#334155' }}>{res.phone}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="order-time-stamp">
+                          Diajukan: {new Date(res.createdAt).toLocaleString('id-ID')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
             </div>
           </>
-        ) : (
+        )}
+
+        {/* 3. MENU VIEW */}
+        {activeView === 'menu' && (
           <>
             <h2 className="section-title">Our Menu</h2>
             {loading ? (
@@ -945,6 +1908,15 @@ const CustomerPage = () => {
           <span>Menu</span>
         </button>
         <button
+          onClick={() => setActiveView('reservation')}
+          className={`mobile-nav-item ${activeView === 'reservation' ? 'active' : ''}`}
+        >
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span>Reservasi</span>
+        </button>
+        <button
           onClick={handleOpenHistory}
           className={`mobile-nav-item ${activeView === 'history' ? 'active' : ''}`}
         >
@@ -986,6 +1958,12 @@ const CustomerPage = () => {
         tableNumber={tableNumber}
         onConfirm={handleCheckout}
         loading={checkoutState?.loading}
+      />
+
+      {/* Success Order Confirmation Modal */}
+      <SuccessOrderModal
+        isOpen={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
       />
     </div>
   );

@@ -9,6 +9,7 @@ USE `db_restaurant_quick_order`;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Drop seluruh tabel dalam database
+DROP TABLE IF EXISTS `tb_reservations`;
 DROP TABLE IF EXISTS `tb_qrcodes`;
 DROP TABLE IF EXISTS `tb_order_items`;
 DROP TABLE IF EXISTS `tb_orders`;
