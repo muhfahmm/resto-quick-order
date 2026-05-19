@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const AdminLogin = () => {
@@ -6,16 +6,25 @@ const AdminLogin = () => {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem('adminUser');
+    if (storedUser) {
+      navigate('/admin/dashboard');
+    }
+  }, [navigate]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:3005/api/admin/login', {
+      const apiUrl = import.meta.env.PROD ? '/api/admin/login' : 'http://localhost:3005/api/admin/login';
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
       const data = await response.json();
       if (data.success) {
+        localStorage.setItem('adminUser', JSON.stringify(data.user));
         alert('Login success');
         navigate('/admin/dashboard');
       } else {

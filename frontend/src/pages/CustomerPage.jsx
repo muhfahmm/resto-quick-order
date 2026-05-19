@@ -4,6 +4,8 @@ import CartDrawer from '../components/CartDrawer';
 import PaymentConfirmationModal from '../modals/PaymentConfirmationModal';
 import SuccessOrderModal from '../modals/SuccessOrderModal';
 
+const getApiUrl = (path) => import.meta.env.PROD ? path : `http://localhost:3005${path}`;
+
 const CustomerPage = () => {
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ const CustomerPage = () => {
     loadHistory();
     loadLocalReservations();
 
-    fetch(`http://${window.location.hostname}:3005/api/menu`)
+    fetch(getApiUrl('/api/menu'))
       .then(res => res.json())
       .then(data => {
         setMenus(data);
@@ -55,7 +57,7 @@ const CustomerPage = () => {
         setLoading(false);
       });
 
-    fetch(`http://${window.location.hostname}:3005/api/qrcodes`)
+    fetch(getApiUrl('/api/qrcodes'))
       .then(res => res.json())
       .then(data => {
         setQrcodes(data);
@@ -98,7 +100,7 @@ const CustomerPage = () => {
   const syncHistoryStatus = async () => {
     if (historyOrders.length === 0) return;
     try {
-      const res = await fetch(`http://${window.location.hostname}:3005/api/orders`);
+      const res = await fetch(getApiUrl('/api/orders'));
       const data = await res.json();
       const statusMap = Object.fromEntries(data.map(order => [order.id, order.status]));
       const updated = historyOrders.map(order => ({
@@ -114,7 +116,7 @@ const CustomerPage = () => {
   const syncReservationsStatus = async () => {
     if (localReservations.length === 0) return;
     try {
-      const res = await fetch(`http://${window.location.hostname}:3005/api/reservations`);
+      const res = await fetch(getApiUrl('/api/reservations'));
       const data = await res.json();
       const statusMap = Object.fromEntries(data.map(r => [r.id, r.status]));
       const updated = localReservations.map(r => ({
@@ -156,7 +158,7 @@ const CustomerPage = () => {
     setResState({ loading: true, message: 'Mengirim permohonan reservasi...' });
 
     try {
-      const response = await fetch(`http://${window.location.hostname}:3005/api/reservations`, {
+      const response = await fetch(getApiUrl('/api/reservations'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,12 +232,22 @@ const CustomerPage = () => {
   };
 
   const handleAddToCartWithAnim = (e, menu) => {
+    if (!tableNumber) {
+      alert("Silakan scan QR Code meja atau pilih nomor meja Anda terlebih dahulu untuk mulai memesan.");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     triggerAddAnimation(e);
     addToCart({ id: menu.id, name: menu.name, price: menu.price, image_url: menu.image_url });
     setCheckoutState(null);
   };
 
   const handleIncreaseWithAnim = (e, menuId) => {
+    if (!tableNumber) {
+      alert("Silakan scan QR Code meja atau pilih nomor meja Anda terlebih dahulu untuk mulai memesan.");
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     triggerAddAnimation(e);
     increaseQty(menuId);
   };
@@ -258,7 +270,7 @@ const CustomerPage = () => {
 
     try {
       const total = cart.reduce((sum, item) => sum + item.qty * parseFloat(item.price || 0), 0);
-      const response = await fetch(`http://${window.location.hostname}:3005/api/orders`, {
+      const response = await fetch(getApiUrl('/api/orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1442,29 +1454,6 @@ const CustomerPage = () => {
               <span className="table-label">Meja</span>
               <span className="table-number">{tableNumber}</span>
             </div>
-            <button 
-              onClick={() => {
-                setTableNumber('');
-                const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-                window.history.pushState({ path: newUrl }, '', newUrl);
-              }}
-              style={{
-                background: '#f1f5f9',
-                color: '#475569',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '0.8rem',
-                fontWeight: 750,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              🔄 Ubah Meja
-            </button>
           </div>
         )}
 
@@ -1478,45 +1467,12 @@ const CustomerPage = () => {
             marginBottom: '2rem',
             textAlign: 'center'
           }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>
-              📍 Silakan Pilih Meja Anda
+            <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: 800, fontSize: '1.2rem', color: '#e11d48' }}>
+              ⚠️ Meja Belum Terdeteksi
             </h3>
-            <p style={{ margin: '0 0 1.5rem 0', color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>
-              Pilih nomor meja tempat Anda duduk untuk memesan makanan langsung ke dapur.
+            <p style={{ margin: '0', color: '#64748b', fontSize: '0.92rem', fontWeight: 600, lineHeight: '1.5' }}>
+              Silakan pindai / scan QR Code yang ada di meja tempat Anda duduk untuk mulai menambahkan hidangan ke keranjang belanja.
             </p>
-            {qrcodes.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#e11d48', fontWeight: 700, padding: '1rem', background: '#fff1f2', borderRadius: '12px' }}>
-                ⚠️ Belum ada meja yang terdaftar di admin panel.
-              </div>
-            ) : (
-              <div className="table-select-grid" style={{ marginTop: '1rem' }}>
-                {qrcodes
-                  .map(qr => qr.table_no)
-                  .filter(Boolean)
-                  .sort((a, b) => {
-                    const numA = parseInt(a, 10);
-                    const numB = parseInt(b, 10);
-                    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-                    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
-                  })
-                  .map(tbl => (
-                    <div 
-                      key={tbl} 
-                      className="table-select-card"
-                      style={{ border: '2px solid #e2e8f0', background: '#f8fafc' }}
-                      onClick={() => {
-                        setTableNumber(tbl);
-                        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?table=${tbl}`;
-                        window.history.pushState({ path: newUrl }, '', newUrl);
-                      }}
-                    >
-                      <span style={{ fontSize: '1.25rem' }}>🪑</span>
-                      <span className="table-select-card-num">{tbl}</span>
-                      <span className="table-select-card-label">Meja</span>
-                    </div>
-                  ))}
-              </div>
-            )}
           </div>
         )}
 

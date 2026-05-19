@@ -9,6 +9,7 @@ const db = require('./src/config/db');
 const QRCode = require('qrcode');
 
 const app = express();
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -77,6 +78,22 @@ async function testDbConnection() {
     } catch (err) {
       console.error('⚠️ Failed to create tb_reservations table:', err.message);
     }
+
+    // Create tb_qrcodes table dynamically if it does not exist
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS tb_qrcodes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          table_no VARCHAR(10) NOT NULL UNIQUE,
+          qr_code_url VARCHAR(255) NOT NULL,
+          qr_image_path VARCHAR(255) DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+      console.log('✅ Created tb_qrcodes table successfully.');
+    } catch (err) {
+      console.error('⚠️ Failed to create tb_qrcodes table:', err.message);
+    }
   } catch (error) {
     console.error('\n⚠️  WARNING: Could not connect to MySQL database!');
     console.error('👉 Please make sure Apache and MySQL are running in your XAMPP Control Panel.');
@@ -85,6 +102,13 @@ async function testDbConnection() {
   }
 }
 testDbConnection();
+
+// Helper to get the correct public base URL for asset normalization
+function getBackendBaseUrl(req) {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3005';
+  return `${protocol}://${host}`;
+}
 
 // ==========================================
 // REST API ENDPOINTS (MySQL Integration)
@@ -99,7 +123,7 @@ app.get('/api/menu', async (req, res) => {
       LEFT JOIN tb_category ON tb_menu.category_id = tb_category.id
     `);
     // Normalize image URLs so they are accessible from the client's host (not hardcoded to localhost)
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getBackendBaseUrl(req);
     const normalized = menus.map(m => {
       if (!m.image_url) return m;
       // If stored with localhost (e.g. http://localhost:3005/uploads/...), replace host
@@ -127,9 +151,7 @@ app.post('/api/menu', upload.single('image'), async (req, res) => {
 
     // If a file was uploaded, construct its URL
     if (req.file) {
-      const host = req.get('host');
-      const protocol = req.protocol;
-      imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+      imageUrl = `${getBackendBaseUrl(req)}/uploads/${req.file.filename}`;
     }
 
     const [result] = await db.query(
@@ -148,9 +170,7 @@ app.put('/api/menu/:id', upload.single('image'), async (req, res) => {
     let imageUrl = req.body.image_url; // Might be undefined or a preserved string
 
     if (req.file) {
-      const host = req.get('host');
-      const protocol = req.protocol;
-      imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+      imageUrl = `${getBackendBaseUrl(req)}/uploads/${req.file.filename}`;
     }
 
     // If an image_url is provided (either from new upload or preserved existing one)
@@ -389,16 +409,54 @@ app.delete('/api/orders/:id', async (req, res) => {
   }
 });
 
+// Debug database status
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const [tables] = await db.query('SHOW TABLES');
+    const [qrcodes] = await db.query('SELECT * FROM tb_qrcodes');
+    res.json({
+      success: true,
+      tables,
+      qrcodesCount: qrcodes.length,
+      qrcodes
+    });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Test DB insertion directly
+app.get('/api/test-db-insert', async (req, res) => {
+  try {
+    const table = '1';
+    const targetUrl = 'https://quickorder.gradasiweb.id/?table=1';
+    const dbImagePath = '/uploads/qrcodes/test.png';
+    
+    const [ins] = await db.query(
+      'INSERT INTO tb_qrcodes (table_no, qr_code_url, qr_image_path) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE qr_code_url = ?, qr_image_path = ?, created_at = CURRENT_TIMESTAMP',
+      [table, targetUrl, dbImagePath, targetUrl, dbImagePath]
+    );
+    res.json({ success: true, result: ins });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // Health-check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: "ok", message: "Quick Order Restaurant backend is running." });
+  res.json({ 
+    status: "ok", 
+    message: "Quick Order Restaurant backend is running.",
+    version: "v1.0.6 - Overhauled Direct QR Codes Save",
+    build_time: new Date().toISOString()
+  });
 });
 
 // List all generated QR codes
 app.get('/api/qrcodes', async (req, res) => {
   try {
     const [qrcodes] = await db.query('SELECT * FROM tb_qrcodes ORDER BY created_at DESC');
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getBackendBaseUrl(req);
     const normalized = qrcodes.map(qr => {
       if (qr.qr_image_path && qr.qr_image_path.startsWith('/uploads')) {
         return { ...qr, qr_image_path: `${baseUrl}${qr.qr_image_path}` };
@@ -424,9 +482,18 @@ app.delete('/api/qrcodes/:id', async (req, res) => {
 app.get('/api/qrcode/:table', async (req, res) => {
   try {
     const table = req.params.table;
-    const host = req.get('host').split(':')[0];
-    const frontendPort = process.env.FRONTEND_PORT || 5173;
-    const targetUrl = `${req.protocol}://${host}:${frontendPort}/?table=${encodeURIComponent(table)}`;
+    
+    let targetUrl;
+    const isProd = fs.existsSync(path.join(__dirname, 'dist'));
+    if (isProd) {
+      // In production, the client page is served at the same host and port as the backend
+      targetUrl = `${getBackendBaseUrl(req)}/?table=${encodeURIComponent(table)}`;
+    } else {
+      // In development, the client page is served by Vite on port 5173
+      const host = req.get('host') || 'localhost:3005';
+      const hostname = host.split(':')[0]; // extract localhost or local network IP
+      targetUrl = `http://${hostname}:5173/?table=${encodeURIComponent(table)}`;
+    }
 
     const buffer = await QRCode.toBuffer(targetUrl, { type: 'png', width: 360, margin: 2 });
 
@@ -441,8 +508,8 @@ app.get('/api/qrcode/:table', async (req, res) => {
     fs.writeFileSync(filePath, buffer);
 
     await db.query(
-      'INSERT INTO tb_qrcodes (table_no, qr_code_url, qr_image_path) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE qr_code_url=VALUES(qr_code_url), qr_image_path=VALUES(qr_image_path), created_at=CURRENT_TIMESTAMP',
-      [table, targetUrl, dbImagePath]
+      'INSERT INTO tb_qrcodes (table_no, qr_code_url, qr_image_path) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE qr_code_url = ?, qr_image_path = ?, created_at = CURRENT_TIMESTAMP',
+      [table, targetUrl, dbImagePath, targetUrl, dbImagePath]
     );
 
     res.set('Content-Type', 'image/png');

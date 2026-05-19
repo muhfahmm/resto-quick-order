@@ -15,9 +15,17 @@ import DeleteCategoryModal from '../modals/DeleteCategoryModal';
 import DeleteOrderModal from '../modals/DeleteOrderModal';
 import DeleteQrcodeModal from '../modals/DeleteQrcodeModal';
 
+const getApiUrl = (path) => import.meta.env.PROD ? path : `http://localhost:3005${path}`;
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
+  
+  // Admin Session State
+  const [adminUser, setAdminUser] = useState(() => {
+    const stored = localStorage.getItem('adminUser');
+    return stored ? JSON.parse(stored) : null;
+  });
   
   // Data States
   const [products, setProducts] = useState([]);
@@ -31,7 +39,6 @@ const AdminDashboard = () => {
   const [formData, setFormData] = useState({ name: '', price: '', category_id: '' });
   const [imageFile, setImageFile] = useState(null);
   const [tableInput, setTableInput] = useState('1');
-  const [qrItems, setQrItems] = useState([]);
   const [qrError, setQrError] = useState(null);
 
   // Modal Visibility & Selection States
@@ -77,36 +84,43 @@ const AdminDashboard = () => {
   });
 
   useEffect(() => {
+    if (!adminUser) {
+      alert('Silakan login terlebih dahulu');
+      navigate('/admin/login');
+      return;
+    }
     fetchProducts();
     fetchCategories();
     fetchQrcodes();
     fetchOrders();
     fetchReservations();
-  }, []);
+  }, [adminUser, navigate]);
 
   // Sync activeTab to URL and localStorage
   useEffect(() => {
+    if (!adminUser) return;
     localStorage.setItem('adminActiveTab', activeTab);
     const urlTab = revTabMap[activeTab];
     if (tab !== urlTab) {
       navigate(`/admin/dashboard/${urlTab}`, { replace: true });
     }
-  }, [activeTab, tab, navigate]);
+  }, [activeTab, tab, navigate, adminUser]);
 
   // Sync URL tab parameter changes back to state
   useEffect(() => {
+    if (!adminUser) return;
     if (tab && tabMap[tab]) {
       setActiveTab(tabMap[tab]);
     } else if (!tab) {
       const urlTab = revTabMap[activeTab];
       navigate(`/admin/dashboard/${urlTab}`, { replace: true });
     }
-  }, [tab]);
+  }, [tab, adminUser]);
 
   // Fetch Actions
   const fetchProducts = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:3005/api/menu`);
+      const res = await fetch(getApiUrl('/api/menu'));
       const data = await res.json();
       setProducts(data);
     } catch (err) {
@@ -116,7 +130,7 @@ const AdminDashboard = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:3005/api/category`);
+      const res = await fetch(getApiUrl('/api/category'));
       const data = await res.json();
       setCategories(data);
     } catch (err) {
@@ -126,7 +140,7 @@ const AdminDashboard = () => {
 
   const fetchQrcodes = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:3005/api/qrcodes`);
+      const res = await fetch(getApiUrl('/api/qrcodes'));
       const data = await res.json();
       setQrcodes(data);
     } catch (err) {
@@ -136,7 +150,7 @@ const AdminDashboard = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:3005/api/orders`);
+      const res = await fetch(getApiUrl('/api/orders'));
       const data = await res.json();
       setOrders(data);
     } catch (err) {
@@ -146,7 +160,7 @@ const AdminDashboard = () => {
 
   const fetchReservations = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:3005/api/reservations`);
+      const res = await fetch(getApiUrl('/api/reservations'));
       const data = await res.json();
       setReservations(data);
     } catch (err) {
@@ -156,7 +170,7 @@ const AdminDashboard = () => {
 
   const updateOrderStatus = async (orderId, status) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/orders/${orderId}/status`, {
+      await fetch(getApiUrl(`/api/orders/${orderId}/status`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -169,7 +183,7 @@ const AdminDashboard = () => {
 
   const updateReservationStatus = async (resId, status) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/reservations/${resId}/status`, {
+      await fetch(getApiUrl(`/api/reservations/${resId}/status`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -183,7 +197,7 @@ const AdminDashboard = () => {
   const handleDeleteReservation = async (resId) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus data reservasi ini secara permanen dari database?')) {
       try {
-        await fetch(`http://${window.location.hostname}:3005/api/reservations/${resId}`, {
+        await fetch(getApiUrl(`/api/reservations/${resId}`), {
           method: 'DELETE'
         });
         fetchReservations();
@@ -198,7 +212,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     if (!newCategoryName) return;
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/category`, {
+      await fetch(getApiUrl('/api/category'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCategoryName })
@@ -222,7 +236,7 @@ const AdminDashboard = () => {
         submitData.append('image', imageFile);
       }
 
-      await fetch(`http://${window.location.hostname}:3005/api/menu`, {
+      await fetch(getApiUrl('/api/menu'), {
         method: 'POST',
         body: submitData
       });
@@ -237,7 +251,7 @@ const AdminDashboard = () => {
   // Edit/Update Callback Operations
   const handleUpdateProduct = async (id, submitData) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/menu/${id}`, {
+      await fetch(getApiUrl(`/api/menu/${id}`), {
         method: 'PUT',
         body: submitData
       });
@@ -249,7 +263,7 @@ const AdminDashboard = () => {
 
   const handleUpdateCategory = async (id, name) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/category/${id}`, {
+      await fetch(getApiUrl(`/api/category/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -264,7 +278,7 @@ const AdminDashboard = () => {
   // Delete Callback Operations (confirmed by Modals)
   const handleDeleteProduct = async (id) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/menu/${id}`, { method: 'DELETE' });
+      await fetch(getApiUrl(`/api/menu/${id}`), { method: 'DELETE' });
       fetchProducts();
     } catch (err) {
       console.error(err);
@@ -273,7 +287,7 @@ const AdminDashboard = () => {
 
   const handleDeleteCategory = async (id) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/category/${id}`, { method: 'DELETE' });
+      await fetch(getApiUrl(`/api/category/${id}`), { method: 'DELETE' });
       fetchCategories();
       fetchProducts();
     } catch (err) {
@@ -283,7 +297,7 @@ const AdminDashboard = () => {
 
   const handleDeleteOrder = async (id) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/orders/${id}`, { method: 'DELETE' });
+      await fetch(getApiUrl(`/api/orders/${id}`), { method: 'DELETE' });
       fetchOrders();
     } catch (err) {
       console.error(err);
@@ -292,7 +306,7 @@ const AdminDashboard = () => {
 
   const handleDeleteQrcode = async (id) => {
     try {
-      await fetch(`http://${window.location.hostname}:3005/api/qrcodes/${id}`, { method: 'DELETE' });
+      await fetch(getApiUrl(`/api/qrcodes/${id}`), { method: 'DELETE' });
       fetchQrcodes();
     } catch (err) {
       console.error(err);
@@ -301,6 +315,8 @@ const AdminDashboard = () => {
 
   // Navigations
   const handleLogout = () => {
+    localStorage.removeItem('adminUser');
+    setAdminUser(null);
     navigate('/admin/login');
   };
 
@@ -308,16 +324,27 @@ const AdminDashboard = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  if (!adminUser) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
       <nav className="flex justify-between items-center bg-slate-900 text-white px-8 py-4 shadow-md">
         <h2 className="text-xl font-bold tracking-tight">Admin Dashboard</h2>
-        <button 
-          onClick={handleLogout} 
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-4">
+          {adminUser && (
+            <span className="text-slate-300 font-medium">
+              Logged in as: <strong className="text-white">{adminUser.username}</strong>
+            </span>
+          )}
+          <button 
+            onClick={handleLogout} 
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+          >
+            Logout
+          </button>
+        </div>
       </nav>
 
       <div className="flex" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -382,8 +409,6 @@ const AdminDashboard = () => {
             <ManageQrcodes
               tableInput={tableInput}
               setTableInput={setTableInput}
-              qrItems={qrItems}
-              setQrItems={setQrItems}
               qrError={qrError}
               setQrError={setQrError}
               qrcodes={qrcodes}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const AdminRegister = () => {
@@ -6,10 +6,18 @@ const AdminRegister = () => {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem('adminUser');
+    if (storedUser) {
+      navigate('/admin/dashboard');
+    }
+  }, [navigate]);
+
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:3005/api/admin/register', {
+      const apiUrl = import.meta.env.PROD ? '/api/admin/register' : 'http://localhost:3005/api/admin/register';
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

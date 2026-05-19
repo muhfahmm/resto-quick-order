@@ -31,9 +31,7 @@ const ManageQrcodes = ({
             onClick={async () => {
               if (!tableInput.trim()) return;
               setQrError(null);
-              setQrItems([]);
               try {
-                const items = [];
                 const tableNames = new Set();
                 const segments = tableInput
                   .split(',')
@@ -52,17 +50,18 @@ const ManageQrcodes = ({
                   }
                 }
 
+                const getApiUrl = (path) => import.meta.env.PROD ? path : `http://localhost:3005${path}`;
                 for (const table of Array.from(tableNames)) {
                   const res = await fetch(
-                    `http://${window.location.hostname}:3005/api/qrcode/${encodeURIComponent(table)}`
+                    getApiUrl(`/api/qrcode/${encodeURIComponent(table)}`)
                   );
-                  if (!res.ok) throw new Error(`Generate QR gagal untuk meja ${table}`);
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  items.push({ table, src: url });
+                  if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `Generate QR gagal untuk meja ${table}`);
+                  }
                 }
 
-                setQrItems(items);
+                setTableInput('');
                 fetchQrcodes();
               } catch (err) {
                 console.error(err);
@@ -75,51 +74,6 @@ const ManageQrcodes = ({
           </button>
         </div>
         {qrError && <div className="text-sm text-red-600 mb-4">{qrError}</div>}
-        {qrItems.length > 0 ? (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {qrItems.map((item) => (
-              <div
-                key={item.table}
-                className="bg-slate-50 p-6 rounded-[28px] border border-slate-200 shadow-sm w-full max-w-[380px] mx-auto"
-              >
-                <div className="mb-4">
-                  <div className="text-base font-semibold text-slate-800">Meja {item.table}</div>
-                  <div className="text-xs text-slate-500">Generated QR preview</div>
-                </div>
-                <div className="overflow-hidden rounded-[24px] bg-white p-4 shadow-inner flex justify-center">
-                  <img
-                    src={item.src}
-                    alt={`QR meja ${item.table}`}
-                    className="max-w-full max-h-[260px] object-contain"
-                  />
-                </div>
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <a
-                    href={item.src}
-                    download={`qr_table_${item.table}.png`}
-                    className="inline-flex justify-center items-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer"
-                  >
-                    Download
-                  </a>
-                  <a
-                    href={`http://${window.location.hostname}:5173/?table=${encodeURIComponent(
-                      item.table
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex justify-center items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                  >
-                    Lihat Meja
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-slate-400">
-            Tidak ada QR yang di-generate. Masukkan nomor meja dan klik Generate.
-          </div>
-        )}
 
         <div className="mt-10">
           <h4 className="text-base font-semibold text-slate-800 mb-6">Stored QR Codes</h4>
@@ -156,9 +110,10 @@ const ManageQrcodes = ({
                   <div className="mt-4 flex flex-col gap-2">
                     <div className="flex gap-2">
                       <a
-                        href={`http://${window.location.hostname}:5173/?table=${encodeURIComponent(
-                          qr.table_no
-                        )}`}
+                        href={import.meta.env.PROD 
+                          ? `${window.location.origin}/?table=${encodeURIComponent(qr.table_no)}` 
+                          : `http://${window.location.hostname}:5173/?table=${encodeURIComponent(qr.table_no)}`
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="flex-1 inline-flex justify-center items-center rounded-full border border-slate-300 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer text-center"
