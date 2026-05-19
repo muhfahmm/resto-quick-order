@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import CartDrawer from '../components/CartDrawer';
+import PaymentConfirmationModal from '../modals/PaymentConfirmationModal';
 
 const CustomerPage = () => {
   const [menus, setMenus] = useState([]);
@@ -12,7 +13,8 @@ const CustomerPage = () => {
   const [activeView, setActiveView] = useState('menu');
   const [historyOrders, setHistoryOrders] = useState([]);
 
-  // Animation States
+  // Modal and Animation States
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [flyingParticles, setFlyingParticles] = useState([]);
   const [cartBouncing, setCartBouncing] = useState(false);
 
@@ -102,11 +104,11 @@ const CustomerPage = () => {
 
   const handleAddToCartWithAnim = (e, menu) => {
     triggerAddAnimation(e);
-    addToCart({ id: menu.id, name: menu.name, price: menu.price });
+    addToCart({ id: menu.id, name: menu.name, price: menu.price, image_url: menu.image_url });
     setCheckoutState(null);
   };
 
-  const handleCheckout = async () => {
+  const triggerPaymentModal = () => {
     if (!tableNumber) {
       setCheckoutState({ error: true, message: 'Silakan gunakan parameter ?table= pada URL untuk memilih nomor meja sebelum checkout.' });
       return;
@@ -115,7 +117,11 @@ const CustomerPage = () => {
       setCheckoutState({ error: true, message: 'Keranjang masih kosong.' });
       return;
     }
+    setCartOpen(false); // Close the slide drawer
+    setPaymentModalOpen(true); // Show the payment confirmation modal
+  };
 
+  const handleCheckout = async (paymentMethod) => {
     setCheckoutState({ loading: true, message: 'Mengirim pesanan...' });
 
     try {
@@ -127,6 +133,7 @@ const CustomerPage = () => {
           tableNo: tableNumber,
           customerName: `Tamu Meja ${tableNumber}`,
           total,
+          paymentMethod,
           items: cart.map(item => ({ id: item.id, qty: item.qty, name: item.name, price: item.price }))
         })
       });
@@ -140,12 +147,14 @@ const CustomerPage = () => {
         id: result.order.id,
         tableNo: tableNumber,
         total,
-        items: cart.map(item => ({ id: item.id, name: item.name, qty: item.qty, price: item.price })),
+        items: cart.map(item => ({ id: item.id, name: item.name, qty: item.qty, price: item.price, image_url: item.image_url })),
         status: 'pending',
+        paymentMethod,
         createdAt: new Date().toISOString()
       };
       saveHistory([newOrder, ...historyOrders]);
       clearCart();
+      setPaymentModalOpen(false);
       setCheckoutState({ error: false, message: 'Pesanan berhasil dikirim! Silakan tunggu di meja.' });
     } catch (err) {
       console.error(err);
@@ -617,7 +626,7 @@ const CustomerPage = () => {
           padding: 3rem 6%;
           max-width: 1200px;
           margin: 0 auto;
-          flex-grow: 1; /* Key element to push footer down */
+          flex-grow: 1;
           width: 100%;
           box-sizing: border-box;
         }
@@ -877,11 +886,9 @@ const CustomerPage = () => {
                         <div key={menu.id} className="menu-card">
                           {menu.image_url && <img src={menu.image_url} alt={menu.name} className="menu-image" />}
                           <div className="card-header">
-                            <span className="category-badge">{menu.category_name}</span>
                             <span className="price-tag">Rp {Number(menu.price).toLocaleString('id-ID')}</span>
                           </div>
                           <h3 className="menu-name" title={menu.name}>{menu.name}</h3>
-                          <p className="menu-desc">{menu.description || 'A delicious choice for your table.'}</p>
                           
                           {/* Tactile spacesaving buttons */}
                           {qty === 0 ? (
@@ -961,8 +968,19 @@ const CustomerPage = () => {
         onRemove={removeFromCart}
         onIncrease={increaseQty}
         onDecrease={decreaseQty}
-        onCheckout={handleCheckout}
+        onCheckout={triggerPaymentModal}
         checkoutState={checkoutState}
+      />
+
+      {/* Pre-checkout Payment Confirmation Modal */}
+      <PaymentConfirmationModal
+        isOpen={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        cartItems={cart}
+        total={cart.reduce((sum, item) => sum + item.qty * parseFloat(item.price || 0), 0)}
+        tableNumber={tableNumber}
+        onConfirm={handleCheckout}
+        loading={checkoutState?.loading}
       />
     </div>
   );

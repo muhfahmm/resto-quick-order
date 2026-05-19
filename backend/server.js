@@ -42,6 +42,14 @@ async function testDbConnection() {
   try {
     const [rows] = await db.query('SELECT 1');
     console.log('✅ MySQL Database connected successfully via XAMPP!');
+    
+    // Add payment_method column dynamically if it does not exist
+    try {
+      await db.query("ALTER TABLE tb_orders ADD COLUMN payment_method VARCHAR(50) DEFAULT 'Dana'");
+      console.log('✅ Added payment_method column to tb_orders table successfully.');
+    } catch (err) {
+      // Ignored if column already exists
+    }
   } catch (error) {
     console.error('\n⚠️  WARNING: Could not connect to MySQL database!');
     console.error('👉 Please make sure Apache and MySQL are running in your XAMPP Control Panel.');
@@ -240,13 +248,13 @@ app.post('/api/orders', async (req, res) => {
   try {
     await connection.beginTransaction();
     
-    const { tableNo, items, total, customerName } = req.body;
+    const { tableNo, items, total, customerName, paymentMethod } = req.body;
     const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
     
     // 1. Insert into tb_orders
     await connection.query(
-      'INSERT INTO tb_orders (id, table_no, customer_name, total_price, status) VALUES (?, ?, ?, ?, ?)',
-      [orderId, tableNo, customerName, total, 'pending']
+      'INSERT INTO tb_orders (id, table_no, customer_name, total_price, status, payment_method) VALUES (?, ?, ?, ?, ?, ?)',
+      [orderId, tableNo, customerName, total, 'pending', paymentMethod || 'Dana']
     );
     
     // 2. Insert order details into tb_order_items
@@ -266,6 +274,7 @@ app.post('/api/orders', async (req, res) => {
       total,
       customerName,
       status: 'pending',
+      paymentMethod: paymentMethod || 'Dana',
       createdAt: new Date()
     };
     

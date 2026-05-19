@@ -123,6 +123,16 @@ export default function CartDrawer({ isOpen, cartItems, tableNumber, onClose, on
           gap: 0.75rem;
         }
 
+        .cart-item-image {
+          width: 48px;
+          height: 48px;
+          border-radius: 10px;
+          object-fit: cover;
+          background-color: #e2e8f0;
+          border: 1px solid rgba(15, 23, 42, 0.05);
+          flex-shrink: 0;
+        }
+
         .cart-item-info {
           flex: 1;
           min-width: 0;
@@ -148,6 +158,7 @@ export default function CartDrawer({ isOpen, cartItems, tableNumber, onClose, on
           display: flex;
           align-items: center;
           gap: 0.4rem;
+          flex-shrink: 0;
         }
 
         .cart-qty-btn {
@@ -190,6 +201,7 @@ export default function CartDrawer({ isOpen, cartItems, tableNumber, onClose, on
           padding: 4px 8px;
           border-radius: 6px;
           transition: all 0.2s ease;
+          flex-shrink: 0;
         }
 
         .cart-remove-btn:hover {
@@ -289,6 +301,11 @@ export default function CartDrawer({ isOpen, cartItems, tableNumber, onClose, on
             <div className="cart-item-list">
               {cartItems.map(item => (
                 <div key={item.id} className="cart-item-row">
+                  <img 
+                    src={item.image_url || 'http://placehold.co/100x100?text=Menu'} 
+                    alt={item.name} 
+                    className="cart-item-image" 
+                  />
                   <div className="cart-item-info">
                     <div className="cart-item-name">{item.name}</div>
                     <div className="cart-item-meta">
