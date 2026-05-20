@@ -102,29 +102,3 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- Index pada order_id agar pengambilan keranjang cepat
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 
-
--- ==========================================================
--- DUMMY DATA SEEDING (Untuk keperluan awal/testing)
--- ==========================================================
-
--- 1. Insert Data Admin
-INSERT INTO admins (username, password, name, role) VALUES 
-('admin_kasir', '$2b$10$wN31rO4H6HqI1nE4WcWq/ej2YjN.kU.h3jA7B0hP1P8y.pEwXG0Uq', 'Kasir Utama', 'kasir'); -- password 'password' di-hash
-
--- 2. Insert Kategori
-INSERT INTO categories (name, description) VALUES 
-('Makanan', 'Hidangan utama dan lauk'),
-('Minuman', 'Minuman segar, kopi, dan jus'),
-('Snack', 'Camilan dan makanan ringan');
-
--- 3. Insert Meja Dummy
-INSERT INTO tables (table_number) VALUES 
-(1), (2), (3), (4), (10), (11);
-
--- 4. Insert Menu
-INSERT INTO menu_items (category_id, name, description, price, image_url, is_available) VALUES 
-(1, 'Nasi Goreng Spesial', 'Nasi goreng dengan telur, sosis, dan ayam', 25000.00, 'nasigoreng.jpg', true),
-(1, 'Ayam Bakar Madu', 'Ayam bakar dengan bumbu madu pedas manis', 30000.00, 'ayambakar.jpg', true),
-(2, 'Es Teh Manis', 'Es teh manis segar pelepas dahaga', 5000.00, 'esteh.jpg', true),
-(2, 'Jus Alpukat', 'Jus alpukat kental dengan susu cokelat', 15000.00, 'jusalpukat.jpg', true),
-(3, 'Kentang Goreng', 'Kentang goreng renyah bumbu BBQ', 12000.00, 'kentang.jpg', true);
