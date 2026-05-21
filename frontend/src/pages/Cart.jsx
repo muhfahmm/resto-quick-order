@@ -89,104 +89,107 @@ function Cart() {
             </button>
           </div>
         ) : (
-          <>
-            {/* Cart Items */}
-            <div className="cart-items" id="cart-items-list">
-              {cartItems.map((item, index) => (
-                <div
-                  className="cart-item"
-                  key={item.id}
-                  id={`cart-item-${item.id}`}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <div className="cart-item-image">
-                    <img src={getMenuImage(item.image_url)} alt={item.name} />
-                  </div>
-
-                  <div className="cart-item-info">
-                    <div>
-                      <h3 className="cart-item-name">{item.name}</h3>
-                      <p className="cart-item-price">{formatPrice(item.price)} / item</p>
+          <div className="cart-container-layout" id="cart-container-layout">
+            {/* Left Column: Cart Items */}
+            <div className="cart-left-col" id="cart-left-col">
+              <div className="cart-items" id="cart-items-list">
+                {cartItems.map((item, index) => (
+                  <div
+                    className="cart-item"
+                    key={item.id}
+                    id={`cart-item-${item.id}`}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="cart-item-image">
+                      <img src={getMenuImage(item.image_url)} alt={item.name} />
                     </div>
 
-                    <div className="cart-item-actions">
-                      <div className="qty-control">
-                        <button
-                          className="qty-btn minus"
-                          onClick={() => decreaseQuantity(item.id)}
-                          aria-label="Kurangi"
-                        >
-                          −
-                        </button>
-                        <span className="qty-value">{item.quantity}</span>
-                        <button
-                          className="qty-btn plus"
-                          onClick={() => addToCart(item)}
-                          aria-label="Tambah"
-                        >
-                          +
-                        </button>
+                    <div className="cart-item-info">
+                      <div>
+                        <h3 className="cart-item-name">{item.name}</h3>
+                        <p className="cart-item-price">{formatPrice(item.price)} / item</p>
                       </div>
 
-                      <span className="cart-item-subtotal">
-                        {formatPrice(item.price * item.quantity)}
-                      </span>
+                      <div className="cart-item-actions">
+                        <div className="qty-control">
+                          <button
+                            className="qty-btn minus"
+                            onClick={() => decreaseQuantity(item.id)}
+                            aria-label="Kurangi"
+                          >
+                            −
+                          </button>
+                          <span className="qty-value">{item.quantity}</span>
+                          <button
+                            className="qty-btn plus"
+                            onClick={() => addToCart(item)}
+                            aria-label="Tambah"
+                          >
+                            +
+                          </button>
+                        </div>
 
-                      <button
-                        className="delete-item-btn"
-                        onClick={() => removeFromCart(item.id)}
-                        aria-label={`Hapus ${item.name}`}
-                        title="Hapus item"
-                      >
-                        🗑️
-                      </button>
+                        <span className="cart-item-subtotal">
+                          {formatPrice(item.price * item.quantity)}
+                        </span>
+
+                        <button
+                          className="delete-item-btn"
+                          onClick={() => removeFromCart(item.id)}
+                          aria-label={`Hapus ${item.name}`}
+                          title="Hapus item"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Column: Order Summary & Checkout Button */}
+            <div className="cart-right-col" id="cart-right-col">
+              <div className="cart-summary" id="cart-summary">
+                <div className="cart-summary-row">
+                  <span>Jumlah Item</span>
+                  <span>{totalItems} item</span>
                 </div>
-              ))}
-            </div>
+                <div className="cart-summary-row">
+                  <span>Subtotal</span>
+                  <span>{formatPrice(totalPrice)}</span>
+                </div>
+                <div className="cart-summary-row">
+                  <span>Nomor Meja</span>
+                  <span style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
+                    Meja {tableNumber}
+                  </span>
+                </div>
+                <div className="cart-summary-row total">
+                  <span>Total</span>
+                  <span className="amount">{formatPrice(totalPrice)}</span>
+                </div>
+              </div>
 
-            {/* Order Summary */}
-            <div className="cart-summary" id="cart-summary">
-              <div className="cart-summary-row">
-                <span>Jumlah Item</span>
-                <span>{totalItems} item</span>
-              </div>
-              <div className="cart-summary-row">
-                <span>Subtotal</span>
-                <span>{formatPrice(totalPrice)}</span>
-              </div>
-              <div className="cart-summary-row">
-                <span>Nomor Meja</span>
-                <span style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
-                  Meja {tableNumber}
-                </span>
-              </div>
-              <div className="cart-summary-row total">
-                <span>Total</span>
-                <span className="amount">{formatPrice(totalPrice)}</span>
-              </div>
+              <button
+                className="checkout-button"
+                id="checkout-button"
+                onClick={handleCheckout}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="spinner"></div>
+                    Mengirim Pesanan...
+                  </>
+                ) : (
+                  <>
+                    Kirim Pesanan — {formatPrice(totalPrice)}
+                  </>
+                )}
+              </button>
             </div>
-
-            {/* Checkout Button */}
-            <button
-              className="checkout-button"
-              id="checkout-button"
-              onClick={handleCheckout}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="spinner"></div>
-                  Mengirim Pesanan...
-                </>
-              ) : (
-                <>
-                  Kirim Pesanan — {formatPrice(totalPrice)}
-                </>
-              )}
-            </button>
-          </>
+          </div>
         )}
       </div>
     </div>

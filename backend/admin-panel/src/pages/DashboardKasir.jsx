@@ -204,7 +204,7 @@ function DashboardKasir() {
                   <div className="order-items-list">
                     {order.items && order.items.map((item, idx) => (
                       <div key={idx} className="order-item-row">
-                        <span>x{item.quantity} Menu ID {item.menu_item_id}</span>
+                        <span>x{item.quantity} {item.name || `Menu ID ${item.menu_item_id}`}</span>
                         <span>{formatPrice(item.price * item.quantity)}</span>
                       </div>
                     ))}

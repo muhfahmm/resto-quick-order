@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const pool = require('./config/db');
+const initDatabase = require('./config/initDb');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,35 +42,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
-// ==============================
-// DUMMY DATA (Placeholder)
-// Data ini akan diganti dengan query MySQL di fase backend
-// ==============================
-const categories = [
-  { id: 1, name: 'Makanan' },
-  { id: 2, name: 'Minuman' },
-  { id: 3, name: 'Snack' },
-];
-
-const menuItems = [
-  { id: 1, category_id: 1, name: 'Nasi Goreng Spesial', description: 'Nasi goreng dengan telur, ayam, dan sayuran segar', price: 35000, image_url: '/images/nasi-goreng.jpg', is_available: true },
-  { id: 2, category_id: 1, name: 'Mie Goreng Seafood', description: 'Mie goreng dengan udang, cumi, dan bumbu spesial', price: 38000, image_url: '/images/mie-goreng.jpg', is_available: true },
-  { id: 3, category_id: 1, name: 'Ayam Bakar Madu', description: 'Ayam bakar dengan saus madu pilihan chef', price: 45000, image_url: '/images/ayam-bakar.jpg', is_available: true },
-  { id: 4, category_id: 1, name: 'Sate Ayam', description: '10 tusuk sate ayam dengan bumbu kacang', price: 30000, image_url: '/images/sate-ayam.jpg', is_available: true },
-  { id: 5, category_id: 1, name: 'Steak Sapi', description: 'Steak sapi premium dengan saus black pepper', price: 75000, image_url: '/images/steak.jpg', is_available: true },
-  { id: 6, category_id: 2, name: 'Es Teh Manis', description: 'Teh manis segar dengan es batu', price: 8000, image_url: '/images/es-teh.jpg', is_available: true },
-  { id: 7, category_id: 2, name: 'Jus Jeruk', description: 'Jus jeruk segar tanpa pengawet', price: 15000, image_url: '/images/jus-jeruk.jpg', is_available: true },
-  { id: 8, category_id: 2, name: 'Kopi Susu', description: 'Kopi susu gula aren khas resto', price: 22000, image_url: '/images/kopi-susu.jpg', is_available: true },
-  { id: 9, category_id: 2, name: 'Milkshake Coklat', description: 'Milkshake coklat premium dengan whipped cream', price: 28000, image_url: '/images/milkshake.jpg', is_available: true },
-  { id: 10, category_id: 3, name: 'Kentang Goreng', description: 'Kentang goreng crispy dengan saus sambal mayo', price: 20000, image_url: '/images/kentang.jpg', is_available: true },
-  { id: 11, category_id: 3, name: 'Chicken Wings', description: '6 pcs sayap ayam goreng bumbu BBQ', price: 32000, image_url: '/images/wings.jpg', is_available: true },
-  { id: 12, category_id: 3, name: 'Onion Rings', description: 'Bawang goreng tepung crispy', price: 18000, image_url: '/images/onion-rings.jpg', is_available: true },
-];
-
-// In-memory Orders storage (Placeholder for database)
-let orders = [];
-
 // ==============================
 // API ROUTES
 // ==============================
@@ -75,97 +49,224 @@ let orders = [];
 // --- USER (CUSTOMER) ENDPOINTS ---
 
 // GET semua kategori
-app.get('/api/categories', (req, res) => {
-  res.json({ success: true, data: categories });
+app.get('/api/categories', async (req, res) => {
+  try {
+    const [categories] = await pool.query('SELECT * FROM categories');
+    res.json({ success: true, data: categories });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil data kategori dari database' });
+  }
 });
 
 // GET semua menu (bisa filter by category_id)
-app.get('/api/menu', (req, res) => {
+app.get('/api/menu', async (req, res) => {
   const { category_id } = req.query;
-  let filtered = menuItems;
-  if (category_id) {
-    filtered = menuItems.filter(item => item.category_id === parseInt(category_id));
+  try {
+    let sql = 'SELECT * FROM menu_items WHERE is_available = true';
+    const params = [];
+    if (category_id && category_id !== '0') {
+      sql += ' AND category_id = ?';
+      params.push(parseInt(category_id));
+    }
+    const [items] = await pool.query(sql, params);
+    
+    // Format DECIMAL prices as standard numbers
+    const formattedItems = items.map(item => ({
+      ...item,
+      price: parseFloat(item.price),
+      is_available: !!item.is_available
+    }));
+    
+    res.json({ success: true, data: formattedItems });
+  } catch (error) {
+    console.error('Error fetching menu items:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil data menu dari database' });
   }
-  res.json({ success: true, data: filtered });
 });
 
 // POST pesanan baru dari meja
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', async (req, res) => {
   const { table_number, items, total_amount } = req.body;
-  const newOrder = {
-    id: Date.now().toString(),
-    table_number,
-    items,
-    total_amount,
-    status: 'pending',
-    order_time: new Date().toISOString()
-  };
 
-  orders.push(newOrder);
+  if (!table_number || !items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, message: 'Data pesanan tidak lengkap atau tidak valid' });
+  }
 
-  console.log(`\x1b[32m[USER ACTION]\x1b[0m 🔔 Pesanan baru diterima dari Meja ${table_number}!`);
-  console.log(`   ID Pesanan: ${newOrder.id}`);
-  console.log(`   Total: Rp ${total_amount?.toLocaleString('id-ID')}`);
-  console.log(`   Items: ${items?.length} item(s)`);
+  const conn = await pool.getConnection();
 
-  res.json({
-    success: true,
-    message: 'Pesanan berhasil dikirim!',
-    data: newOrder
-  });
+  try {
+    await conn.beginTransaction();
+
+    // 1. Insert into orders table
+    const [orderResult] = await conn.query(
+      'INSERT INTO orders (table_number, total_amount, status, payment_status) VALUES (?, ?, ?, ?)',
+      [table_number, total_amount, 'pending', 'unpaid']
+    );
+    const orderId = orderResult.insertId;
+
+    // 2. Insert into order_items table
+    for (const item of items) {
+      // Get current price of menu item from database to ensure price integrity
+      const [menuItem] = await conn.query('SELECT price FROM menu_items WHERE id = ?', [item.menu_item_id]);
+      if (menuItem.length === 0) {
+        throw new Error(`Menu item dengan ID ${item.menu_item_id} tidak ditemukan`);
+      }
+      const price = parseFloat(menuItem[0].price);
+
+      await conn.query(
+        'INSERT INTO order_items (order_id, menu_item_id, quantity, price) VALUES (?, ?, ?, ?)',
+        [orderId, item.menu_item_id, item.quantity, price]
+      );
+    }
+
+    await conn.commit();
+    conn.release();
+
+    console.log(`\x1b[32m[USER ACTION]\x1b[0m 🔔 Pesanan baru disimpan ke database: Meja ${table_number}!`);
+    console.log(`   ID Pesanan: ${orderId}`);
+    console.log(`   Total: Rp ${total_amount?.toLocaleString('id-ID')}`);
+    console.log(`   Items: ${items?.length} item(s)`);
+
+    res.json({
+      success: true,
+      message: 'Pesanan berhasil dikirim!',
+      data: {
+        id: orderId.toString(),
+        table_number,
+        total_amount,
+        status: 'pending',
+        order_time: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    await conn.rollback();
+    conn.release();
+    console.error('Error saving order to database:', error);
+    res.status(500).json({ success: false, message: error.message || 'Gagal menyimpan pesanan ke database' });
+  }
 });
 
 // --- ADMIN (KASIR) ENDPOINTS ---
 
 // POST login kasir/admin
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   
-  // Login dummy
-  if (username === 'admin' && password === 'admin123') {
-    console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 🔑 Login berhasil untuk admin: "${username}"`);
-    res.json({
-      success: true,
-      message: 'Login berhasil!',
-      token: 'dummy-jwt-token-quickorder',
-      user: { username: 'admin', name: 'Kasir Utama', role: 'admin' }
-    });
-  } else {
+  try {
+    const [admins] = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
+    if (admins.length > 0) {
+      const admin = admins[0];
+      const match = await bcrypt.compare(password, admin.password);
+      if (match) {
+        console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 🔑 Login berhasil untuk admin: "${username}"`);
+        res.json({
+          success: true,
+          message: 'Login berhasil!',
+          token: 'dummy-jwt-token-quickorder',
+          user: { username: admin.username, name: admin.name, role: admin.role }
+        });
+        return;
+      }
+    }
+    
     console.log(`\x1b[31m[ADMIN ACTION]\x1b[0m ❌ Percobaan login gagal untuk admin: "${username}"`);
     res.status(401).json({
       success: false,
       message: 'Username atau password salah!'
     });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ success: false, message: 'Gagal memproses login admin' });
   }
 });
 
 // GET semua pesanan (dashboard kasir)
-app.get('/api/orders', (req, res) => {
-  console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 📋 Dashboard kasir menarik semua data pesanan (${orders.length} pesanan total).`);
-  res.json({ success: true, data: orders });
+app.get('/api/orders', async (req, res) => {
+  try {
+    const [orders] = await pool.query('SELECT * FROM orders ORDER BY order_time DESC');
+    if (orders.length === 0) {
+      console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 📋 Dashboard kasir menarik semua data pesanan (0 pesanan total).`);
+      return res.json({ success: true, data: [] });
+    }
+
+    const orderIds = orders.map(o => o.id);
+    const [orderItems] = await pool.query(
+      `SELECT oi.*, mi.name as name 
+       FROM order_items oi 
+       JOIN menu_items mi ON oi.menu_item_id = mi.id 
+       WHERE oi.order_id IN (${orderIds.map(() => '?').join(',')})`,
+      orderIds
+    );
+
+    const itemsByOrderId = {};
+    orderItems.forEach(item => {
+      if (!itemsByOrderId[item.order_id]) {
+        itemsByOrderId[item.order_id] = [];
+      }
+      itemsByOrderId[item.order_id].push({
+        id: item.id,
+        menu_item_id: item.menu_item_id,
+        name: item.name,
+        quantity: item.quantity,
+        price: parseFloat(item.price)
+      });
+    });
+
+    const formattedOrders = orders.map(order => ({
+      id: order.id.toString(),
+      table_number: order.table_number,
+      total_amount: parseFloat(order.total_amount),
+      status: order.status,
+      order_time: order.order_time,
+      items: itemsByOrderId[order.id] || []
+    }));
+
+    console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 📋 Dashboard kasir menarik semua data pesanan (${formattedOrders.length} pesanan total).`);
+    res.json({ success: true, data: formattedOrders });
+
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil data pesanan dari database' });
+  }
 });
 
 // PATCH update status pesanan (diproses, selesai, dibatalkan)
-app.patch('/api/orders/:id/status', (req, res) => {
+app.patch('/api/orders/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   
-  const order = orders.find(o => o.id === id);
-  if (!order) {
-    console.log(`\x1b[31m[ADMIN ACTION]\x1b[0m ❌ Gagal memperbarui status: Pesanan ID ${id} tidak ditemukan.`);
-    return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan' });
+  try {
+    const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [id]);
+    if (orders.length === 0) {
+      console.log(`\x1b[31m[ADMIN ACTION]\x1b[0m ❌ Gagal memperbarui status: Pesanan ID ${id} tidak ditemukan.`);
+      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan' });
+    }
+
+    const order = orders[0];
+    const oldStatus = order.status;
+
+    await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+
+    console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m ✏️ Pesanan ID ${id} diperbarui: [${oldStatus}] ➔ [\x1b[33m${status}\x1b[0m]`);
+
+    res.json({
+      success: true,
+      message: `Status pesanan berhasil diubah menjadi ${status}`,
+      data: {
+        id: id.toString(),
+        table_number: order.table_number,
+        total_amount: parseFloat(order.total_amount),
+        status: status,
+        order_time: order.order_time
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ success: false, message: 'Gagal memperbarui status pesanan' });
   }
-
-  const oldStatus = order.status;
-  order.status = status;
-
-  console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m ✏️ Pesanan ID ${id} diperbarui: [${oldStatus}] ➔ [\x1b[33m${status}\x1b[0m]`);
-
-  res.json({
-    success: true,
-    message: `Status pesanan berhasil diubah menjadi ${status}`,
-    data: order
-  });
 });
 
 // Root endpoint to prevent 'Cannot GET /'
@@ -194,19 +295,24 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'QuickOrder API is running' });
 });
 
-
 // ==============================
-// START SERVER
+// START SERVER AFTER DB INIT
 // ==============================
-app.listen(PORT, () => {
-  console.log(`\n🚀 QuickOrder Backend API running on http://localhost:${PORT}`);
-  console.log(`📋 ENDPOINTS USER (Pelanggan):`);
-  console.log(`   GET  /api/categories  - Ambil kategori`);
-  console.log(`   GET  /api/menu        - Ambil list menu`);
-  console.log(`   POST /api/orders      - Buat pesanan baru`);
-  console.log(`📋 ENDPOINTS ADMIN (Kasir):`);
-  console.log(`   POST /api/auth/login  - Login admin`);
-  console.log(`   GET  /api/orders      - Lihat semua pesanan`);
-  console.log(`   PATCH/api/orders/:id/status - Ubah status pesanan\n`);
-});
-
+initDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n🚀 QuickOrder Backend API running on http://localhost:${PORT}`);
+      console.log(`📋 ENDPOINTS USER (Pelanggan):`);
+      console.log(`   GET  /api/categories  - Ambil kategori`);
+      console.log(`   GET  /api/menu        - Ambil list menu`);
+      console.log(`   POST /api/orders      - Buat pesanan baru`);
+      console.log(`📋 ENDPOINTS ADMIN (Kasir):`);
+      console.log(`   POST /api/auth/login  - Login admin`);
+      console.log(`   GET  /api/orders      - Lihat semua pesanan`);
+      console.log(`   PATCH/api/orders/:id/status - Ubah status pesanan\n`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ Failed to initialize database. Server cannot start:', err.message);
+    process.exit(1);
+  });

@@ -59,11 +59,9 @@ CREATE TABLE IF NOT EXISTS menu_items (
     is_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+    INDEX idx_menu_category (category_id)
 ) ENGINE=InnoDB;
-
--- Membuat index untuk mempercepat pencarian berdasarkan kategori
-CREATE INDEX idx_menu_category ON menu_items(category_id);
 
 -- ==========================================================
 -- TABEL 5: orders (Pesanan Masuk)
@@ -76,12 +74,10 @@ CREATE TABLE IF NOT EXISTS orders (
     status ENUM('pending', 'processing', 'completed', 'cancelled') DEFAULT 'pending',
     payment_status ENUM('unpaid', 'paid') DEFAULT 'unpaid',
     order_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_order_status (status),
+    INDEX idx_order_table (table_number)
 ) ENGINE=InnoDB;
-
--- Membuat index agar dashboard kasir lebih cepat me-load status pesanan
-CREATE INDEX idx_order_status ON orders(status);
-CREATE INDEX idx_order_table ON orders(table_number);
 
 -- ==========================================================
 -- TABEL 6: order_items (Detail Item Pesanan)
@@ -96,9 +92,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     subtotal DECIMAL(10,2) GENERATED ALWAYS AS (quantity * price) STORED,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE
+    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE,
+    INDEX idx_order_items_order (order_id)
 ) ENGINE=InnoDB;
-
--- Index pada order_id agar pengambilan keranjang cepat
-CREATE INDEX idx_order_items_order ON order_items(order_id);
 
