@@ -1,0 +1,17 @@
+{
+  "name": "quickorder-restaurant",
+  "version": "1.0.0",
+  "description": "QuickOrder Restaurant - Aplikasi Pemesanan Mandiri",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n FE,BE,AD -c cyan,yellow,magenta \"npm run dev:fe\" \"npm run dev:be\" \"npm run dev:ad\"",
+    "dev:fe": "cd frontend && npm run dev",
+    "dev:be": "cd backend && npm run dev",
+    "dev:ad": "cd backend/admin-panel && npm run dev",
+    "install:all": "cd frontend && npm install && cd ../backend && npm install && cd admin-panel && npm install"
+  },
+
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

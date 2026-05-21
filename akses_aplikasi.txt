@@ -1,0 +1,68 @@
+================================================================================
+CARA MENGAKSES WEB USER INTERFACE (FRONTEND CUSTOMER) & ADMIN PANEL
+================================================================================
+
+Aplikasi QuickOrder Restaurant adalah sistem pemesanan mandiri (self-ordering system)
+yang terdiri dari tiga komponen utama:
+1. Web User Interface (Frontend Pelanggan)
+2. Admin/Kasir Panel (Manajemen Restoran)
+3. Backend API (Server & Database)
+
+Berikut adalah panduan lengkap cara mengakses masing-masing bagian:
+
+--------------------------------------------------------------------------------
+1. WEB USER INTERFACE (FRONTEND PELANGGAN)
+--------------------------------------------------------------------------------
+* Status: Aktif & Siap Digunakan (Fokus Utama Fase 1)
+* URL Akses Lokal: http://localhost:5173/
+* Konsep Akses:
+  Pelanggan akan memindai QR Code di meja mereka. QR Code tersebut mengarah ke URL
+  aplikasi dengan menyertakan parameter nomor meja ("meja").
+
+* Cara Mengakses (Uji Coba):
+  Gunakan parameter query "?meja={nomor_meja}" untuk mensimulasikan pemesanan
+  dari meja tertentu. Contoh:
+  - Meja 11: http://localhost:5173/?meja=11
+  - Meja 5 : http://localhost:5173/?meja=5
+  - Meja 1 : http://localhost:5173/  (Secara default akan diarahkan ke Meja 1 jika parameter kosong)
+
+* Alur Navigasi Pelanggan:
+  1. Halaman Menu Utama (`/`): Menampilkan list kategori (Semua, Makanan, Minuman,
+     Cemilan) serta menu makanan dengan gambar yang menarik.
+  2. Keranjang Belanja (`/cart?meja=X`): Menampilkan pesanan yang dipilih, jumlah,
+     catatan khusus, dan total harga.
+  3. Konfirmasi Pesanan (`/order-success?meja=X`): Halaman sukses setelah pelanggan
+     mengirimkan pesanan. Sistem akan mengosongkan keranjang dan menampilkan ID Pesanan.
+
+--------------------------------------------------------------------------------
+2. ADMIN / KASIR PANEL (ADMIN PANEL)
+--------------------------------------------------------------------------------
+* Status: Aktif & Siap Digunakan (Berjalan pada port 5174)
+* Lokasi Kode: backend/admin-panel
+* Cara Akses:
+  - URL Akses Lokal: http://localhost:5174/
+  - Halaman Login (`/`): Masuk menggunakan username `admin` dan password `admin123`.
+  - Dashboard Kasir (`/dashboard`): Menampilkan pesanan masuk secara real-time dari pelanggan
+    serta memungkinkan kasir mengubah status pesanan (Proses, Batalkan, Selesaikan).
+  - Integrasi: Menghubungkan secara dinamis ke REST API Backend di port 3001.
+
+
+--------------------------------------------------------------------------------
+3. BACKEND API (SERVER UTAMA)
+--------------------------------------------------------------------------------
+* Status: Aktif (Menggunakan Dummy Data sementara untuk mendukung Frontend)
+* URL Akses Lokal: http://localhost:3001/
+* Endpoint yang Tersedia:
+  - GET    /api/categories  : Mengambil data kategori menu
+  - GET    /api/menu        : Mengambil data menu (dapat difilter berdasarkan kategori)
+  - POST   /api/orders      : Mengirim data pesanan baru dari meja pelanggan
+  
+--------------------------------------------------------------------------------
+CARA MENJALANKAN SELURUH APLIKASI
+--------------------------------------------------------------------------------
+Cukup jalankan satu perintah di root project folder (quick_order_restaurant):
+
+  npm run dev
+
+Perintah ini menggunakan module `concurrently` untuk menyalakan frontend (port 5173)
+dan backend (port 3001) secara bersamaan.
