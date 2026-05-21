@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Produk from './Produk';
+import Kategori from './Kategori';
 
 function DashboardKasir() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('antrean'); // 'antrean', 'riwayat', 'statistik', 'qrcodes'
+  const [activeTab, setActiveTab] = useState('antrean'); // 'antrean', 'riwayat', 'statistik', 'qrcodes', 'produk', 'kategori'
   const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'completed', 'cancelled'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pollInterval = useRef(null);
@@ -78,6 +81,14 @@ function DashboardKasir() {
       if (pollInterval.current) clearInterval(pollInterval.current);
     };
   }, []);
+
+  // Sync activeTab with URL path (last segment)
+  useEffect(() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    const last = parts[parts.length - 1] || 'antrean';
+    // only update if different
+    if (last !== activeTab) setActiveTab(last);
+  }, [location.pathname]);
 
   // Update order status
   const handleUpdateStatus = async (orderId, newStatus) => {
@@ -351,7 +362,7 @@ function DashboardKasir() {
         <nav className="sidebar-menu">
           <button 
             className={`sidebar-menu-item ${activeTab === 'antrean' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('antrean'); setSidebarOpen(false); }}
+            onClick={() => { navigate('/dashboard/antrean'); setSidebarOpen(false); }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
               <circle cx="12" cy="12" r="10" />
@@ -363,9 +374,33 @@ function DashboardKasir() {
             )}
           </button>
 
+          <button
+            className={`sidebar-menu-item ${activeTab === 'produk' ? 'active' : ''}`}
+            onClick={() => { navigate('/dashboard/produk'); setSidebarOpen(false); }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
+              <path d="M3 7h18" />
+              <path d="M3 12h18" />
+              <path d="M3 17h18" />
+            </svg>
+            <span className="menu-text">Produk</span>
+          </button>
+
+          <button
+            className={`sidebar-menu-item ${activeTab === 'kategori' ? 'active' : ''}`}
+            onClick={() => { navigate('/dashboard/kategori'); setSidebarOpen(false); }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a7 7 0 0 0 0-6" />
+              <path d="M4.6 9a7 7 0 0 0 0 6" />
+            </svg>
+            <span className="menu-text">Kategori</span>
+          </button>
+
           <button 
             className={`sidebar-menu-item ${activeTab === 'riwayat' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('riwayat'); setSidebarOpen(false); }}
+            onClick={() => { navigate('/dashboard/riwayat'); setSidebarOpen(false); }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
               <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
@@ -379,7 +414,7 @@ function DashboardKasir() {
 
           <button 
             className={`sidebar-menu-item ${activeTab === 'statistik' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('statistik'); setSidebarOpen(false); }}
+            onClick={() => { navigate('/dashboard/statistik'); setSidebarOpen(false); }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
               <line x1="18" y1="20" x2="18" y2="10" />
@@ -391,7 +426,7 @@ function DashboardKasir() {
 
           <button 
             className={`sidebar-menu-item ${activeTab === 'qrcodes' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('qrcodes'); setSidebarOpen(false); }}
+            onClick={() => { navigate('/dashboard/qrcodes'); setSidebarOpen(false); }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -436,12 +471,16 @@ function DashboardKasir() {
               {activeTab === 'riwayat' && 'Semua Riwayat Pesanan'}
               {activeTab === 'statistik' && 'Analisis & Omzet'}
               {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
+              {activeTab === 'produk' && 'Manajemen Produk'}
+              {activeTab === 'kategori' && 'Manajemen Kategori'}
             </h1>
             <p className="header-subtitle">
               {activeTab === 'antrean' && 'Kelola pesanan pelanggan yang sedang berjalan.'}
               {activeTab === 'riwayat' && 'Seluruh histori transaksi pelanggan yang tercatat.'}
               {activeTab === 'statistik' && 'Statistik performa penjualan dan total pendapatan.'}
               {activeTab === 'qrcodes' && 'Buat QR Code meja secara instan dan daftarkan ke database.'}
+              {activeTab === 'produk' && 'Tambah, sunting, atau hapus produk yang tersedia di menu.'}
+              {activeTab === 'kategori' && 'Kelola kategori menu: tambah, sunting, atau hapus.'}
             </p>
           </div>
           <div className="header-actions">
@@ -462,6 +501,8 @@ function DashboardKasir() {
             {activeTab === 'riwayat' && 'Semua Riwayat Pesanan'}
             {activeTab === 'statistik' && 'Analisis & Omzet'}
             {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
+            {activeTab === 'produk' && 'Manajemen Produk'}
+            {activeTab === 'kategori' && 'Manajemen Kategori'}
           </h2>
 
           {error && <div className="auth-error" style={{ maxWidth: '100%' }}>{error}</div>}
@@ -742,6 +783,20 @@ function DashboardKasir() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Tab: Kategori Management */}
+          {activeTab === 'kategori' && (
+            <div style={{ width: '100%' }}>
+              <Kategori />
+            </div>
+          )}
+
+          {/* Tab: Produk Management */}
+          {activeTab === 'produk' && (
+            <div style={{ width: '100%' }}>
+              <Produk />
             </div>
           )}
         </main>

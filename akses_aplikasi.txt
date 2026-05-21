@@ -24,7 +24,8 @@ Berikut adalah panduan lengkap cara mengakses masing-masing bagian:
   dari meja tertentu. Contoh:
   - Meja 11: http://localhost:5173/?meja=11
   - Meja 5 : http://localhost:5173/?meja=5
-  (Jika nomor meja tidak terdaftar di tb_qrcodes database, akses akan diblokir)
+  - Tanpa Scan (Tanpa param): http://localhost:5173/ (Akan menampilkan list menu langsung dengan banner kuning "Perlu Scan QR Code" & tombol order dinonaktifkan)
+  (Jika nomor meja tidak terdaftar di database, pemesanan juga akan diblokir dengan peringatan)
 
 * Alur Navigasi Pelanggan:
   1. Halaman Menu Utama (`/`): Menampilkan list kategori (Makanan, Minuman, Snack)

@@ -7,10 +7,15 @@ import { getMenuImage, formatPrice, submitOrder, validateTable } from '../servic
 function Cart() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const tableNumber = searchParams.get('meja') || '1';
+  const rawTable = searchParams.get('meja');
+  const tableNumber = (rawTable && rawTable !== 'null' && rawTable !== 'undefined') ? rawTable : null;
 
   useEffect(() => {
-    console.log(`%c[USER ACCESS] Mengakses Halaman Keranjang Belanja - Meja: ${tableNumber}`, 'color: #4caf50; font-weight: bold; font-size: 12px;');
+    if (tableNumber) {
+      console.log(`%c[USER ACCESS] Mengakses Halaman Keranjang Belanja - Meja: ${tableNumber}`, 'color: #4caf50; font-weight: bold; font-size: 12px;');
+    } else {
+      console.log(`%c[USER ACCESS] Mengakses Halaman Keranjang Belanja - Tanpa Scan QR Code`, 'color: #fbbf24; font-weight: bold; font-size: 12px;');
+    }
   }, [tableNumber]);
 
 
@@ -29,6 +34,10 @@ function Cart() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!tableNumber) {
+      setLoading(false);
+      return;
+    }
     async function checkTable() {
       try {
         setLoading(true);
@@ -45,7 +54,7 @@ function Cart() {
   }, [tableNumber]);
 
   const handleCheckout = async () => {
-    if (cartItems.length === 0) return;
+    if (cartItems.length === 0 || !tableNumber) return;
 
     setIsSubmitting(true);
     try {
@@ -84,13 +93,24 @@ function Cart() {
           <button
             className="back-button"
             id="back-to-menu"
-            onClick={() => navigate(`/?meja=${tableNumber}`)}
+            onClick={() => navigate(tableNumber ? `/?meja=${tableNumber}` : '/')}
             aria-label="Kembali ke menu"
           >
             ←
           </button>
           <h1 className="cart-title">Keranjang</h1>
         </div>
+
+        {/* QR Warning Banner */}
+        {!tableNumber && (
+          <div className="qr-warning-banner" id="qr-warning-banner" style={{ marginTop: 'var(--space-md)' }}>
+            <span className="warning-icon">⚠️</span>
+            <div>
+              <h3>Perlu Scan QR Code</h3>
+              <p>Silakan scan QR Code di meja Anda terlebih dahulu untuk dapat mengirim pesanan.</p>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
@@ -192,9 +212,15 @@ function Cart() {
                 </div>
                 <div className="cart-summary-row">
                   <span>Nomor Meja</span>
-                  <span style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
-                    Meja {tableNumber}
-                  </span>
+                  {tableNumber ? (
+                    <span style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
+                      Meja {tableNumber}
+                    </span>
+                  ) : (
+                    <span style={{ fontWeight: 600, color: 'var(--color-warning)' }}>
+                      Belum Scan QR
+                    </span>
+                  )}
                 </div>
                 <div className="cart-summary-row total">
                   <span>Total</span>
@@ -206,12 +232,17 @@ function Cart() {
                 className="checkout-button"
                 id="checkout-button"
                 onClick={handleCheckout}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !tableNumber}
+                style={!tableNumber ? { background: 'var(--color-text-muted)', cursor: 'not-allowed', opacity: 0.6 } : {}}
               >
                 {isSubmitting ? (
                   <>
                     <div className="spinner"></div>
                     Mengirim Pesanan...
+                  </>
+                ) : !tableNumber ? (
+                  <>
+                    Perlu Scan QR Code
                   </>
                 ) : (
                   <>

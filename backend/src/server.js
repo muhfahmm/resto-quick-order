@@ -11,6 +11,16 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Handle malformed JSON body errors from body-parser
+app.use((err, req, res, next) => {
+  // body-parser JSON errors may appear as SyntaxError or have type 'entity.parse.failed'
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    console.error('Malformed JSON in request body:', err && err.message);
+    return res.status(400).json({ success: false, message: 'Malformed JSON body' });
+  }
+  next(err);
+});
+
 // Request Logger Middleware to distinguish between USER and ADMIN access
 app.use((req, res, next) => {
   const time = new Date().toLocaleTimeString('id-ID');
@@ -401,6 +411,112 @@ app.delete('/api/qrcodes/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting qrcode:', error);
     res.status(500).json({ success: false, message: 'Gagal menghapus QR Code' });
+  }
+});
+
+// -----------------------------
+// ADMIN: Category CRUD
+// -----------------------------
+
+// POST create category
+app.post('/api/categories', async (req, res) => {
+  const { name, description } = req.body;
+  if (!name) return res.status(400).json({ success: false, message: 'Nama kategori wajib diisi' });
+  try {
+    // check duplicate
+    const [exists] = await pool.query('SELECT id FROM tb_categories WHERE name = ?', [name]);
+    if (exists.length > 0) return res.status(400).json({ success: false, message: 'Kategori sudah ada' });
+
+    const [result] = await pool.query('INSERT INTO tb_categories (name, description) VALUES (?, ?)', [name, description || null]);
+    res.json({ success: true, message: 'Kategori berhasil dibuat', data: { id: result.insertId, name, description } });
+  } catch (err) {
+    console.error('Error creating category:', err);
+    res.status(500).json({ success: false, message: 'Gagal membuat kategori' });
+  }
+});
+
+// PUT update category
+app.put('/api/categories/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, description } = req.body;
+  try {
+    const [rows] = await pool.query('SELECT * FROM tb_categories WHERE id = ?', [id]);
+    if (rows.length === 0) return res.status(404).json({ success: false, message: 'Kategori tidak ditemukan' });
+    await pool.query('UPDATE tb_categories SET name = ?, description = ? WHERE id = ?', [name || rows[0].name, description || rows[0].description, id]);
+    res.json({ success: true, message: 'Kategori berhasil diperbarui' });
+  } catch (err) {
+    console.error('Error updating category:', err);
+    res.status(500).json({ success: false, message: 'Gagal memperbarui kategori' });
+  }
+});
+
+// DELETE category
+app.delete('/api/categories/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await pool.query('SELECT * FROM tb_categories WHERE id = ?', [id]);
+    if (rows.length === 0) return res.status(404).json({ success: false, message: 'Kategori tidak ditemukan' });
+    await pool.query('DELETE FROM tb_categories WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Kategori berhasil dihapus' });
+  } catch (err) {
+    console.error('Error deleting category:', err);
+    res.status(500).json({ success: false, message: 'Gagal menghapus kategori' });
+  }
+});
+
+// -----------------------------
+// ADMIN: Product CRUD
+// -----------------------------
+
+// POST create product
+app.post('/api/products', async (req, res) => {
+  const { name, category_id, price, description, image_url, is_available } = req.body;
+  if (!name || !category_id || typeof price === 'undefined') return res.status(400).json({ success: false, message: 'Nama, kategori, dan harga wajib diisi' });
+  try {
+    const [cat] = await pool.query('SELECT id FROM tb_categories WHERE id = ?', [category_id]);
+    if (cat.length === 0) return res.status(400).json({ success: false, message: 'Kategori tidak ditemukan' });
+
+    const [result] = await pool.query(
+      'INSERT INTO tb_products (category_id, name, description, price, image_url, is_available) VALUES (?, ?, ?, ?, ?, ?)',
+      [category_id, name, description || null, price, image_url || null, is_available ? 1 : 0]
+    );
+    res.json({ success: true, message: 'Produk berhasil dibuat', data: { id: result.insertId } });
+  } catch (err) {
+    console.error('Error creating product:', err);
+    res.status(500).json({ success: false, message: 'Gagal membuat produk' });
+  }
+});
+
+// PUT update product
+app.put('/api/products/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, category_id, price, description, image_url, is_available } = req.body;
+  try {
+    const [rows] = await pool.query('SELECT * FROM tb_products WHERE id = ?', [id]);
+    if (rows.length === 0) return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+    const existing = rows[0];
+    await pool.query(
+      'UPDATE tb_products SET category_id = ?, name = ?, description = ?, price = ?, image_url = ?, is_available = ? WHERE id = ?',
+      [category_id || existing.category_id, name || existing.name, description || existing.description, typeof price !== 'undefined' ? price : existing.price, image_url || existing.image_url, typeof is_available !== 'undefined' ? (is_available ? 1 : 0) : existing.is_available, id]
+    );
+    res.json({ success: true, message: 'Produk berhasil diperbarui' });
+  } catch (err) {
+    console.error('Error updating product:', err);
+    res.status(500).json({ success: false, message: 'Gagal memperbarui produk' });
+  }
+});
+
+// DELETE product
+app.delete('/api/products/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await pool.query('SELECT * FROM tb_products WHERE id = ?', [id]);
+    if (rows.length === 0) return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+    await pool.query('DELETE FROM tb_products WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Produk berhasil dihapus' });
+  } catch (err) {
+    console.error('Error deleting product:', err);
+    res.status(500).json({ success: false, message: 'Gagal menghapus produk' });
   }
 });
 

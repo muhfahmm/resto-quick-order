@@ -9,12 +9,16 @@ import { getCategories, getMenuItems, formatPrice, validateTable } from '../serv
 function Home() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const tableNumber = searchParams.get('meja') || '1';
+  const rawTable = searchParams.get('meja');
+  const tableNumber = (rawTable && rawTable !== 'null' && rawTable !== 'undefined') ? rawTable : null;
 
   useEffect(() => {
-    console.log(`%c[USER ACCESS] Mengakses Halaman Menu Utama - Meja: ${tableNumber}`, 'color: #4caf50; font-weight: bold; font-size: 12px;');
+    if (tableNumber) {
+      console.log(`%c[USER ACCESS] Mengakses Halaman Menu Utama - Meja: ${tableNumber}`, 'color: #4caf50; font-weight: bold; font-size: 12px;');
+    } else {
+      console.log(`%c[USER ACCESS] Mengakses Halaman Menu Utama - Tanpa Scan QR Code`, 'color: #fbbf24; font-weight: bold; font-size: 12px;');
+    }
   }, [tableNumber]);
-
 
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -30,8 +34,10 @@ function Home() {
       setLoading(true);
       setError(null);
       try {
-        // 1. Validasi nomor meja di database
-        await validateTable(tableNumber);
+        // 1. Validasi nomor meja di database jika ada
+        if (tableNumber) {
+          await validateTable(tableNumber);
+        }
 
         // 2. Ambil data kategori dan menu
         const cats = await getCategories();
@@ -47,7 +53,7 @@ function Home() {
       }
     }
     loadData();
-  }, [activeCategory]);
+  }, [activeCategory, tableNumber]);
 
   const handleCategoryChange = (categoryId) => {
     setActiveCategory(categoryId);
@@ -68,6 +74,17 @@ function Home() {
             Pilih menu favoritmu dan pesan langsung dari meja. Tanpa antri! ✨
           </p>
         </div>
+
+        {/* QR Warning Banner */}
+        {!tableNumber && (
+          <div className="qr-warning-banner" id="qr-warning-banner">
+            <span className="warning-icon">⚠️</span>
+            <div>
+              <h3>Perlu Scan QR Code</h3>
+              <p>Menu dapat dilihat, tetapi Anda perlu memindai QR Code di meja Anda untuk melakukan pemesanan.</p>
+            </div>
+          </div>
+        )}
 
         {/* Error Alert */}
         {error ? (

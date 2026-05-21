@@ -19,8 +19,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Navigate to="/dashboard/antrean" replace />} />
         <Route 
-          path="/dashboard" 
+          path="/dashboard/*" 
           element={
             <ProtectedRoute>
               <DashboardKasir />

@@ -4,12 +4,21 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 function OrderSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const tableNumber = searchParams.get('meja') || '1';
+  const rawTable = searchParams.get('meja');
+  const tableNumber = (rawTable && rawTable !== 'null' && rawTable !== 'undefined') ? rawTable : null;
   const orderId = searchParams.get('order_id') || '-';
 
   useEffect(() => {
+    if (!tableNumber) {
+      navigate('/');
+      return;
+    }
     console.log(`%c[USER ACCESS] Mengakses Halaman Konfirmasi Pesanan - Meja: ${tableNumber}, Order ID: #${orderId}`, 'color: #4caf50; font-weight: bold; font-size: 12px;');
-  }, [tableNumber, orderId]);
+  }, [tableNumber, orderId, navigate]);
+
+  if (!tableNumber) {
+    return null;
+  }
 
 
   return (

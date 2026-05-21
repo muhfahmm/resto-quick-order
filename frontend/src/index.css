@@ -1042,3 +1042,34 @@ a {
 .menu-card:nth-child(10) { animation-delay: 450ms; }
 .menu-card:nth-child(11) { animation-delay: 500ms; }
 .menu-card:nth-child(12) { animation-delay: 550ms; }
+
+/* QR Code Warning Banner styling */
+.qr-warning-banner {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  animation: card-in 0.3s ease-out;
+}
+
+.qr-warning-banner .warning-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.qr-warning-banner h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-warning);
+  margin-bottom: 4px;
+}
+
+.qr-warning-banner p {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+

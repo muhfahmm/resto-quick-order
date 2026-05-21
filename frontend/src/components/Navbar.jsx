@@ -11,10 +11,15 @@ function Navbar({ tableNumber }) {
         <div className="navbar-brand">
           <span className="navbar-logo">🍽️</span>
           <span className="navbar-title">QuickOrder</span>
-          {tableNumber && (
+          {tableNumber ? (
             <div className="navbar-table" id="table-indicator">
               <span className="navbar-table-icon">📍</span>
               Meja {tableNumber}
+            </div>
+          ) : (
+            <div className="navbar-table" id="table-indicator" style={{ background: 'rgba(251, 191, 36, 0.12)', color: 'var(--color-warning)' }}>
+              <span className="navbar-table-icon">⚠️</span>
+              Perlu scan QR Code
             </div>
           )}
         </div>
