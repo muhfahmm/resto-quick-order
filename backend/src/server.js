@@ -25,10 +25,11 @@ app.use((req, res, next) => {
                   (path === '/api/orders' && method === 'GET') ||
                   (path.match(/^\/api\/orders\/[^\/]+\/status$/) && method === 'PATCH');
 
-  // User endpoints: categories list, menu list, POST order
+  // User endpoints: categories list, menu list, POST order, table verification
   const isUser = path === '/api/categories' || 
                  path === '/api/menu' || 
-                 (path === '/api/orders' && method === 'POST');
+                 (path === '/api/orders' && method === 'POST') ||
+                 path.startsWith('/api/tables/');
 
   if (isAdmin) {
     role = '🔑 ADMIN ';
@@ -47,6 +48,21 @@ app.use((req, res, next) => {
 // ==============================
 
 // --- USER (CUSTOMER) ENDPOINTS ---
+
+// GET verifikasi meja
+app.get('/api/tables/:table_number', async (req, res) => {
+  const { table_number } = req.params;
+  try {
+    const [tables] = await pool.query('SELECT * FROM tables WHERE table_number = ?', [parseInt(table_number)]);
+    if (tables.length === 0) {
+      return res.status(404).json({ success: false, message: `Meja ${table_number} tidak terdaftar di database` });
+    }
+    res.json({ success: true, data: tables[0] });
+  } catch (error) {
+    console.error('Error fetching table:', error);
+    res.status(500).json({ success: false, message: 'Gagal memvalidasi meja dari database' });
+  }
+});
 
 // GET semua kategori
 app.get('/api/categories', async (req, res) => {
@@ -150,6 +166,42 @@ app.post('/api/orders', async (req, res) => {
 
 // --- ADMIN (KASIR) ENDPOINTS ---
 
+// POST register kasir/admin baru
+app.post('/api/auth/register', async (req, res) => {
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'Semua kolom wajib diisi!' });
+  }
+  
+  try {
+    // Check if username already exists
+    const [existing] = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Username sudah terdaftar!' });
+    }
+    
+    // Hash password and insert
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    await pool.query(
+      'INSERT INTO admins (username, password) VALUES (?, ?)',
+      [username, hashedPassword]
+    );
+    
+    console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 🔑 Registrasi admin baru berhasil: "${username}"`);
+    
+    res.json({
+      success: true,
+      message: 'Registrasi berhasil! Silakan login.',
+      user: { username }
+    });
+  } catch (error) {
+    console.error('Error during registration:', error);
+    res.status(500).json({ success: false, message: 'Gagal memproses registrasi admin baru' });
+  }
+});
+
 // POST login kasir/admin
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
@@ -165,7 +217,7 @@ app.post('/api/auth/login', async (req, res) => {
           success: true,
           message: 'Login berhasil!',
           token: 'dummy-jwt-token-quickorder',
-          user: { username: admin.username, name: admin.name, role: admin.role }
+          user: { username: admin.username }
         });
         return;
       }

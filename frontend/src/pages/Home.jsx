@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import TabMenu from '../components/TabMenu';
 import MenuCard from '../components/MenuCard';
 import { useCart } from '../context/CartContext';
-import { getCategories, getMenuItems, formatPrice } from '../services/api';
+import { getCategories, getMenuItems, formatPrice, validateTable } from '../services/api';
 
 function Home() {
   const [searchParams] = useSearchParams();
@@ -30,6 +30,10 @@ function Home() {
       setLoading(true);
       setError(null);
       try {
+        // 1. Validasi nomor meja di database
+        await validateTable(tableNumber);
+
+        // 2. Ambil data kategori dan menu
         const cats = await getCategories();
         setCategories(cats);
 
@@ -37,7 +41,7 @@ function Home() {
         setMenuItems(items);
       } catch (err) {
         console.error('Gagal memuat data:', err);
-        setError('Gagal menghubungkan ke database server. Pastikan MySQL di XAMPP dan server backend sudah aktif!');
+        setError(err.message);
       } finally {
         setLoading(false);
       }

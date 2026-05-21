@@ -9,7 +9,7 @@ function DashboardKasir() {
   const [refreshing, setRefreshing] = useState(false);
   const pollInterval = useRef(null);
 
-  const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{"name":"Kasir"}');
+  const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{"username":"Kasir"}');
 
   // Fetch orders
   const fetchOrders = async (showIndicator = false) => {
@@ -119,7 +119,7 @@ function DashboardKasir() {
         </div>
         <div className="nav-actions">
           <div className="user-info">
-            Petugas: <strong>{adminUser.name}</strong>
+            Petugas: <strong>{adminUser.username || adminUser.name || 'Kasir'}</strong>
           </div>
           <button className="logout-btn" onClick={handleLogout}>Keluar</button>
         </div>

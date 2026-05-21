@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useCart } from '../context/CartContext';
-import { getMenuImage, formatPrice, submitOrder } from '../services/api';
+import { getMenuImage, formatPrice, submitOrder, validateTable } from '../services/api';
 
 function Cart() {
   const [searchParams] = useSearchParams();
@@ -25,6 +25,24 @@ function Cart() {
   } = useCart();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function checkTable() {
+      try {
+        setLoading(true);
+        setError(null);
+        await validateTable(tableNumber);
+      } catch (err) {
+        console.error('Meja tidak valid:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    checkTable();
+  }, [tableNumber]);
 
   const handleCheckout = async () => {
     if (cartItems.length === 0) return;
@@ -73,7 +91,19 @@ function Cart() {
           <h1 className="cart-title">Keranjang</h1>
         </div>
 
-        {cartItems.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+            <div className="spinner" style={{ borderTopColor: 'var(--color-accent)' }}></div>
+          </div>
+        ) : error ? (
+          <div className="db-error-alert" id="db-error-alert">
+            <span className="error-icon">⚠️</span>
+            <div>
+              <h3>Akses Meja Gagal</h3>
+              <p>{error}</p>
+            </div>
+          </div>
+        ) : cartItems.length === 0 ? (
           /* Empty Cart State */
           <div className="cart-empty" id="cart-empty">
             <div className="cart-empty-icon">🛒</div>

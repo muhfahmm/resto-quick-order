@@ -100,3 +100,16 @@ export async function submitOrder(orderData) {
   const data = await res.json();
   return data;
 }
+
+/**
+ * Verifikasi nomor meja di database
+ */
+export async function validateTable(tableNumber) {
+  const res = await fetch(`${API_BASE_URL}/tables/${tableNumber}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || `Meja ${tableNumber} tidak terdaftar di database`);
+  }
+  const data = await res.json();
+  return data.data;
+}

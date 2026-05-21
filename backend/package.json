@@ -5,7 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "reset-db": "node src/config/resetDb.js",
+    "seed-test": "node src/config/seedTestDb.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
