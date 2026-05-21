@@ -22,12 +22,12 @@ async function resetDb() {
     console.log('🔄 Dropping existing tables...');
     await connection.query(`
       SET FOREIGN_KEY_CHECKS = 0;
-      DROP TABLE IF EXISTS order_items;
-      DROP TABLE IF EXISTS orders;
-      DROP TABLE IF EXISTS menu_items;
-      DROP TABLE IF EXISTS categories;
-      DROP TABLE IF EXISTS tables;
-      DROP TABLE IF EXISTS admins;
+      DROP TABLE IF EXISTS tb_orders_items;
+      DROP TABLE IF EXISTS tb_orders;
+      DROP TABLE IF EXISTS tb_products;
+      DROP TABLE IF EXISTS tb_categories;
+      DROP TABLE IF EXISTS tb_qrcodes;
+      DROP TABLE IF EXISTS tb_admin;
       SET FOREIGN_KEY_CHECKS = 1;
     `);
     console.log('✅ Dropped all tables successfully.');

@@ -9,12 +9,12 @@ USE db_quickorder;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Hapus tabel dengan urutan dari child ke parent (detail ke master)
-DROP TABLE IF EXISTS order_items;
-DROP TABLE IF EXISTS orders;
-DROP TABLE IF EXISTS menu_items;
-DROP TABLE IF EXISTS categories;
-DROP TABLE IF EXISTS tables;
-DROP TABLE IF EXISTS admins;
+DROP TABLE IF EXISTS tb_orders_items;
+DROP TABLE IF EXISTS tb_orders;
+DROP TABLE IF EXISTS tb_products;
+DROP TABLE IF EXISTS tb_categories;
+DROP TABLE IF EXISTS tb_qrcodes;
+DROP TABLE IF EXISTS tb_admin;
 
 -- Menyalakan kembali pengecekan Foreign Key
 SET FOREIGN_KEY_CHECKS = 1;

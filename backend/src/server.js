@@ -20,10 +20,11 @@ app.use((req, res, next) => {
   const path = req.path;
   const method = req.method;
 
-  // Admin endpoints: Auth, GET all orders, PATCH order status
+  // Admin endpoints: Auth, GET all orders, PATCH order status, QR Codes admin
   const isAdmin = path.startsWith('/api/auth') || 
                   (path === '/api/orders' && method === 'GET') ||
-                  (path.match(/^\/api\/orders\/[^\/]+\/status$/) && method === 'PATCH');
+                  (path.match(/^\/api\/orders\/[^\/]+\/status$/) && method === 'PATCH') ||
+                  path.startsWith('/api/qrcodes');
 
   // User endpoints: categories list, menu list, POST order, table verification
   const isUser = path === '/api/categories' || 
@@ -53,7 +54,7 @@ app.use((req, res, next) => {
 app.get('/api/tables/:table_number', async (req, res) => {
   const { table_number } = req.params;
   try {
-    const [tables] = await pool.query('SELECT * FROM tables WHERE table_number = ?', [parseInt(table_number)]);
+    const [tables] = await pool.query('SELECT * FROM tb_qrcodes WHERE table_number = ?', [parseInt(table_number)]);
     if (tables.length === 0) {
       return res.status(404).json({ success: false, message: `Meja ${table_number} tidak terdaftar di database` });
     }
@@ -67,7 +68,7 @@ app.get('/api/tables/:table_number', async (req, res) => {
 // GET semua kategori
 app.get('/api/categories', async (req, res) => {
   try {
-    const [categories] = await pool.query('SELECT * FROM categories');
+    const [categories] = await pool.query('SELECT * FROM tb_categories');
     res.json({ success: true, data: categories });
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -79,9 +80,9 @@ app.get('/api/categories', async (req, res) => {
 app.get('/api/menu', async (req, res) => {
   const { category_id } = req.query;
   try {
-    let sql = 'SELECT * FROM menu_items WHERE is_available = true';
+    let sql = 'SELECT * FROM tb_products WHERE is_available = true';
     const params = [];
-    if (category_id && category_id !== '0') {
+    if (category_id && category_id !== '0' && category_id !== 0) {
       sql += ' AND category_id = ?';
       params.push(parseInt(category_id));
     }
@@ -114,25 +115,30 @@ app.post('/api/orders', async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // 1. Insert into orders table
+    // 1. Insert into tb_orders table
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (table_number, total_amount, status, payment_status) VALUES (?, ?, ?, ?)',
+      'INSERT INTO tb_orders (table_number, total_amount, status, payment_status) VALUES (?, ?, ?, ?)',
       [table_number, total_amount, 'pending', 'unpaid']
     );
     const orderId = orderResult.insertId;
 
-    // 2. Insert into order_items table
+    // 2. Insert into tb_orders_items table
     for (const item of items) {
-      // Get current price of menu item from database to ensure price integrity
-      const [menuItem] = await conn.query('SELECT price FROM menu_items WHERE id = ?', [item.menu_item_id]);
-      if (menuItem.length === 0) {
-        throw new Error(`Menu item dengan ID ${item.menu_item_id} tidak ditemukan`);
+      const productId = item.product_id || item.menu_item_id;
+      if (!productId) {
+        throw new Error('ID menu/produk tidak terdefinisi');
       }
-      const price = parseFloat(menuItem[0].price);
+
+      // Get current price of product from database to ensure price integrity
+      const [product] = await conn.query('SELECT price FROM tb_products WHERE id = ?', [productId]);
+      if (product.length === 0) {
+        throw new Error(`Produk dengan ID ${productId} tidak ditemukan`);
+      }
+      const price = parseFloat(product[0].price);
 
       await conn.query(
-        'INSERT INTO order_items (order_id, menu_item_id, quantity, price) VALUES (?, ?, ?, ?)',
-        [orderId, item.menu_item_id, item.quantity, price]
+        'INSERT INTO tb_orders_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)',
+        [orderId, productId, item.quantity, price]
       );
     }
 
@@ -148,6 +154,7 @@ app.post('/api/orders', async (req, res) => {
       success: true,
       message: 'Pesanan berhasil dikirim!',
       data: {
+        order_id: orderId.toString(), // client looks for result.data.order_id
         id: orderId.toString(),
         table_number,
         total_amount,
@@ -176,7 +183,7 @@ app.post('/api/auth/register', async (req, res) => {
   
   try {
     // Check if username already exists
-    const [existing] = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
+    const [existing] = await pool.query('SELECT * FROM tb_admin WHERE username = ?', [username]);
     if (existing.length > 0) {
       return res.status(400).json({ success: false, message: 'Username sudah terdaftar!' });
     }
@@ -185,7 +192,7 @@ app.post('/api/auth/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     await pool.query(
-      'INSERT INTO admins (username, password) VALUES (?, ?)',
+      'INSERT INTO tb_admin (username, password) VALUES (?, ?)',
       [username, hashedPassword]
     );
     
@@ -207,7 +214,7 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   
   try {
-    const [admins] = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
+    const [admins] = await pool.query('SELECT * FROM tb_admin WHERE username = ?', [username]);
     if (admins.length > 0) {
       const admin = admins[0];
       const match = await bcrypt.compare(password, admin.password);
@@ -237,7 +244,7 @@ app.post('/api/auth/login', async (req, res) => {
 // GET semua pesanan (dashboard kasir)
 app.get('/api/orders', async (req, res) => {
   try {
-    const [orders] = await pool.query('SELECT * FROM orders ORDER BY order_time DESC');
+    const [orders] = await pool.query('SELECT * FROM tb_orders ORDER BY order_time DESC');
     if (orders.length === 0) {
       console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 📋 Dashboard kasir menarik semua data pesanan (0 pesanan total).`);
       return res.json({ success: true, data: [] });
@@ -246,8 +253,8 @@ app.get('/api/orders', async (req, res) => {
     const orderIds = orders.map(o => o.id);
     const [orderItems] = await pool.query(
       `SELECT oi.*, mi.name as name 
-       FROM order_items oi 
-       JOIN menu_items mi ON oi.menu_item_id = mi.id 
+       FROM tb_orders_items oi 
+       JOIN tb_products mi ON oi.product_id = mi.id 
        WHERE oi.order_id IN (${orderIds.map(() => '?').join(',')})`,
       orderIds
     );
@@ -259,7 +266,7 @@ app.get('/api/orders', async (req, res) => {
       }
       itemsByOrderId[item.order_id].push({
         id: item.id,
-        menu_item_id: item.menu_item_id,
+        product_id: item.product_id,
         name: item.name,
         quantity: item.quantity,
         price: parseFloat(item.price)
@@ -290,7 +297,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
   const { status } = req.body;
   
   try {
-    const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [id]);
+    const [orders] = await pool.query('SELECT * FROM tb_orders WHERE id = ?', [id]);
     if (orders.length === 0) {
       console.log(`\x1b[31m[ADMIN ACTION]\x1b[0m ❌ Gagal memperbarui status: Pesanan ID ${id} tidak ditemukan.`);
       return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan' });
@@ -299,7 +306,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
     const order = orders[0];
     const oldStatus = order.status;
 
-    await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    await pool.query('UPDATE tb_orders SET status = ? WHERE id = ?', [status, id]);
 
     console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m ✏️ Pesanan ID ${id} diperbarui: [${oldStatus}] ➔ [\x1b[33m${status}\x1b[0m]`);
 
@@ -321,6 +328,82 @@ app.patch('/api/orders/:id/status', async (req, res) => {
   }
 });
 
+// --- ADMIN QR CODES ENDPOINTS ---
+
+// GET semua QR Code meja terdaftar
+app.get('/api/qrcodes', async (req, res) => {
+  try {
+    const [qrcodes] = await pool.query('SELECT * FROM tb_qrcodes ORDER BY table_number ASC');
+    res.json({ success: true, data: qrcodes });
+  } catch (error) {
+    console.error('Error fetching qrcodes:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil data QR Code' });
+  }
+});
+
+// POST daftarkan QR Code meja baru
+app.post('/api/qrcodes', async (req, res) => {
+  const { table_number } = req.body;
+  if (!table_number) {
+    return res.status(400).json({ success: false, message: 'Nomor meja wajib diisi!' });
+  }
+  
+  try {
+    const tableNum = parseInt(table_number);
+    if (isNaN(tableNum) || tableNum <= 0) {
+      return res.status(400).json({ success: false, message: 'Nomor meja harus berupa angka positif!' });
+    }
+
+    // Check if table_number already exists
+    const [existing] = await pool.query('SELECT * FROM tb_qrcodes WHERE table_number = ?', [tableNum]);
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: `Meja ${tableNum} sudah terdaftar!` });
+    }
+
+    // Generate QR Code URL
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('http://localhost:5173/?meja=' + tableNum)}`;
+
+    const [result] = await pool.query(
+      'INSERT INTO tb_qrcodes (table_number, qr_code_url) VALUES (?, ?)',
+      [tableNum, qrCodeUrl]
+    );
+
+    console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 🖨️ Meja ${tableNum} didaftarkan dengan QR Code.`);
+
+    res.json({
+      success: true,
+      message: `Meja ${tableNum} berhasil didaftarkan!`,
+      data: {
+        id: result.insertId,
+        table_number: tableNum,
+        qr_code_url: qrCodeUrl
+      }
+    });
+  } catch (error) {
+    console.error('Error registering table qrcode:', error);
+    res.status(500).json({ success: false, message: 'Gagal mendaftarkan meja' });
+  }
+});
+
+// DELETE hapus QR Code meja
+app.delete('/api/qrcodes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [existing] = await pool.query('SELECT * FROM tb_qrcodes WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Data QR Code tidak ditemukan' });
+    }
+    
+    await pool.query('DELETE FROM tb_qrcodes WHERE id = ?', [id]);
+    console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 🗑️ Meja ${existing[0].table_number} telah dihapus.`);
+    
+    res.json({ success: true, message: `Meja ${existing[0].table_number} berhasil dihapus!` });
+  } catch (error) {
+    console.error('Error deleting qrcode:', error);
+    res.status(500).json({ success: false, message: 'Gagal menghapus QR Code' });
+  }
+});
+
 // Root endpoint to prevent 'Cannot GET /'
 app.get('/', (req, res) => {
   res.json({
@@ -331,12 +414,17 @@ app.get('/', (req, res) => {
       user: [
         'GET /api/categories',
         'GET /api/menu',
-        'POST /api/orders'
+        'POST /api/orders',
+        'GET /api/tables/:table_number'
       ],
       admin: [
         'POST /api/auth/login',
+        'POST /api/auth/register',
         'GET /api/orders',
-        'PATCH /api/orders/:id/status'
+        'PATCH /api/orders/:id/status',
+        'GET /api/qrcodes',
+        'POST /api/qrcodes',
+        'DELETE /api/qrcodes/:id'
       ]
     }
   });
@@ -358,10 +446,15 @@ initDatabase()
       console.log(`   GET  /api/categories  - Ambil kategori`);
       console.log(`   GET  /api/menu        - Ambil list menu`);
       console.log(`   POST /api/orders      - Buat pesanan baru`);
+      console.log(`   GET  /api/tables/:num - Validasi meja`);
       console.log(`📋 ENDPOINTS ADMIN (Kasir):`);
       console.log(`   POST /api/auth/login  - Login admin`);
+      console.log(`   POST /api/auth/register - Register admin`);
       console.log(`   GET  /api/orders      - Lihat semua pesanan`);
-      console.log(`   PATCH/api/orders/:id/status - Ubah status pesanan\n`);
+      console.log(`   PATCH/api/orders/:id/status - Ubah status pesanan`);
+      console.log(`   GET  /api/qrcodes     - Ambil daftar QR Code`);
+      console.log(`   POST /api/qrcodes     - Daftarkan meja & QR Code`);
+      console.log(`   DELETE/api/qrcodes/:id - Hapus meja & QR Code\n`);
     });
   })
   .catch(err => {

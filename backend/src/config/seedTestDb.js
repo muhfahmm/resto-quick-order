@@ -8,32 +8,35 @@ async function seedTestData() {
   try {
     await connection.beginTransaction();
 
-    // 1. Seed Meja 11
+    // 1. Seed Meja 11 in tb_qrcodes
     console.log('🌱 Seeding Meja 11...');
+    const tableNumber = 11;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('http://localhost:5173/?meja=' + tableNumber)}`;
+    
     await connection.query(
-      'INSERT INTO tables (table_number, status) VALUES (?, ?) ON DUPLICATE KEY UPDATE status = ?',
-      [11, 'available', 'available']
+      'INSERT INTO tb_qrcodes (table_number, qr_code_url) VALUES (?, ?) ON DUPLICATE KEY UPDATE qr_code_url = ?',
+      [tableNumber, qrCodeUrl, qrCodeUrl]
     );
     console.log('✅ Meja 11 seeded.');
 
-    // 2. Seed Categories (Makanan, Minuman, Snack)
+    // 2. Seed Categories (Makanan, Minuman, Snack) in tb_categories
     console.log('🌱 Seeding categories...');
     const categories = [
-      [1, 'Makanan', 'Menu hidangan utama utama'],
+      [1, 'Makanan', 'Menu hidangan utama'],
       [2, 'Minuman', 'Minuman segar dingin dan hangat'],
       [3, 'Snack', 'Cemilan pendamping santai']
     ];
 
     for (const cat of categories) {
       await connection.query(
-        'INSERT INTO categories (id, name, description) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE description = ?',
+        'INSERT INTO tb_categories (id, name, description) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE description = ?',
         [cat[0], cat[1], cat[2], cat[2]]
       );
     }
     console.log('✅ Categories seeded.');
 
-    // 3. Seed Menu Items (12 Items)
-    console.log('🌱 Seeding menu items...');
+    // 3. Seed Products in tb_products (12 Items)
+    console.log('🌱 Seeding products...');
     const items = [
       [1, 1, 'Nasi Goreng Spesial', 'Nasi goreng dengan telur, ayam, dan sayuran segar', 35000, '/images/nasi-goreng.jpg', true],
       [2, 1, 'Mie Goreng Seafood', 'Mie goreng dengan udang, cumi, dan bumbu spesial', 38000, '/images/mie-goreng.jpg', true],
@@ -51,7 +54,7 @@ async function seedTestData() {
 
     for (const item of items) {
       await connection.query(
-        `INSERT INTO menu_items (id, category_id, name, description, price, image_url, is_available) 
+        `INSERT INTO tb_products (id, category_id, name, description, price, image_url, is_available) 
          VALUES (?, ?, ?, ?, ?, ?, ?) 
          ON DUPLICATE KEY UPDATE 
            category_id = VALUES(category_id),
@@ -63,7 +66,7 @@ async function seedTestData() {
         item
       );
     }
-    console.log('✅ Menu items seeded.');
+    console.log('✅ Products seeded.');
 
     await connection.commit();
     console.log('🎉 Manual test seeding completed successfully!');

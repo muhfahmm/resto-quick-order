@@ -1005,3 +1005,211 @@ body {
   width: 20px;
   height: 20px;
 }
+
+/* ==========================================================
+   QR Code Manager & Generator Styles
+   ========================================================== */
+.qrcode-manager-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 28px;
+  align-items: start;
+  width: 100%;
+}
+
+.qrcode-generator-card {
+  background-color: var(--color-bg-card);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 24px;
+  box-shadow: var(--box-shadow);
+}
+
+.qrcode-list-card {
+  background-color: var(--color-bg-card);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 24px;
+  box-shadow: var(--box-shadow);
+  min-height: 480px;
+}
+
+.generator-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 12px;
+  color: var(--color-text-main);
+}
+
+.qr-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qr-live-preview-section {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.qr-preview-box {
+  background-color: rgba(15, 23, 42, 0.4);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 270px;
+  text-align: center;
+}
+
+.qr-preview-placeholder {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  max-width: 220px;
+}
+
+.qr-preview-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.qr-preview-image {
+  width: 170px;
+  height: 170px;
+  border-radius: 8px;
+  border: 4px solid #fff;
+  background-color: #fff;
+  box-shadow: var(--box-shadow-lg);
+  transition: var(--transition-smooth);
+}
+
+.qr-preview-table-label {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--color-accent);
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.qr-preview-url {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  word-break: break-all;
+  max-width: 240px;
+}
+
+.qrcode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.qr-card {
+  background-color: rgba(15, 23, 42, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: var(--transition-smooth);
+}
+
+.qr-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--box-shadow-lg);
+}
+
+.qr-card-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.qr-card-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.qr-card-delete-btn {
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: var(--transition-smooth);
+  padding: 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.qr-card-delete-btn:hover {
+  opacity: 1;
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+.qr-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px;
+  width: 100%;
+  gap: 12px;
+}
+
+.qr-card-image {
+  width: 120px;
+  height: 120px;
+  border: 3px solid #fff;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: var(--box-shadow);
+}
+
+.qr-card-link {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: var(--transition-smooth);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background-color: rgba(59, 130, 246, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.qr-card-link:hover {
+  color: #fff;
+  background-color: var(--color-primary);
+}
+
+@media (max-width: 767px) {
+  .qrcode-manager-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+

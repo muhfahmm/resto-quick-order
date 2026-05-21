@@ -7,10 +7,17 @@ function DashboardKasir() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('antrean'); // 'antrean', 'riwayat', 'statistik'
+  const [activeTab, setActiveTab] = useState('antrean'); // 'antrean', 'riwayat', 'statistik', 'qrcodes'
   const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'completed', 'cancelled'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pollInterval = useRef(null);
+
+  // QR Code States
+  const [qrcodes, setQrcodes] = useState([]);
+  const [qrTableNumber, setQrTableNumber] = useState('');
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState('');
+  const [qrSuccess, setQrSuccess] = useState('');
 
   const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{"username":"Kasir"}');
 
@@ -40,9 +47,27 @@ function DashboardKasir() {
     }
   };
 
+  // Fetch QR codes
+  const fetchQrcodes = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/qrcodes', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setQrcodes(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching qrcodes:', err);
+    }
+  };
+
   useEffect(() => {
     console.log('%c[ADMIN ACCESS] Mengakses Halaman Dashboard Kasir', 'color: #00bcd4; font-weight: bold; font-size: 12px;');
     fetchOrders();
+    fetchQrcodes();
 
     // Start auto polling every 5 seconds to show orders in real-time
     pollInterval.current = setInterval(() => {
@@ -75,6 +100,68 @@ function DashboardKasir() {
     } catch (err) {
       console.error('Error updating status:', err);
       alert('Terjadi kesalahan koneksi ke server.');
+    }
+  };
+
+  // Register QR Code / Table
+  const handleRegisterQrCode = async (e) => {
+    e.preventDefault();
+    if (!qrTableNumber) {
+      setQrError('Harap isi nomor meja!');
+      return;
+    }
+    
+    setQrLoading(true);
+    setQrError('');
+    setQrSuccess('');
+    
+    try {
+      const response = await fetch('http://localhost:3001/api/qrcodes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify({ table_number: qrTableNumber }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setQrSuccess(data.message);
+        setQrTableNumber('');
+        fetchQrcodes();
+      } else {
+        setQrError(data.message || 'Gagal mendaftarkan meja');
+      }
+    } catch (err) {
+      console.error('Error creating qrcode:', err);
+      setQrError('Gagal terhubung ke server backend.');
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // Delete QR Code / Table
+  const handleDeleteQrCode = async (id) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus meja ini? Pelanggan tidak akan bisa memesan dari meja ini lagi.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/qrcodes/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        fetchQrcodes();
+      } else {
+        alert(data.message || 'Gagal menghapus meja');
+      }
+    } catch (err) {
+      console.error('Error deleting qrcode:', err);
+      alert('Gagal terhubung ke server backend.');
     }
   };
 
@@ -135,7 +222,7 @@ function DashboardKasir() {
       .forEach(o => {
         if (o.items) {
           o.items.forEach(item => {
-            const name = item.name || `Menu ID ${item.menu_item_id}`;
+            const name = item.name || `Menu ID ${item.product_id || item.menu_item_id}`;
             itemCounts[name] = (itemCounts[name] || 0) + item.quantity;
           });
         }
@@ -167,7 +254,7 @@ function DashboardKasir() {
         <div className="order-items-list">
           {order.items && order.items.map((item, idx) => (
             <div key={idx} className="order-item-row">
-              <span>x{item.quantity} {item.name || `Menu ID ${item.menu_item_id}`}</span>
+              <span>x{item.quantity} {item.name || `Menu ID ${item.product_id || item.menu_item_id}`}</span>
               <span>{formatPrice(item.price * item.quantity)}</span>
             </div>
           ))}
@@ -301,6 +388,21 @@ function DashboardKasir() {
             </svg>
             <span className="menu-text">Analisis & Omzet</span>
           </button>
+
+          <button 
+            className={`sidebar-menu-item ${activeTab === 'qrcodes' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('qrcodes'); setSidebarOpen(false); }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <rect x="7" y="7" width="3" height="3" />
+              <rect x="14" y="7" width="3" height="3" />
+              <rect x="7" y="14" width="3" height="3" />
+              <line x1="14" y1="14" x2="14" y2="17" />
+              <line x1="17" y1="14" x2="17" y2="17" />
+            </svg>
+            <span className="menu-text">Generate QR Meja</span>
+          </button>
         </nav>
 
         <div className="sidebar-footer">
@@ -333,17 +435,19 @@ function DashboardKasir() {
               {activeTab === 'antrean' && 'Antrean Aktif'}
               {activeTab === 'riwayat' && 'Semua Riwayat Pesanan'}
               {activeTab === 'statistik' && 'Analisis & Omzet'}
+              {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
             </h1>
             <p className="header-subtitle">
               {activeTab === 'antrean' && 'Kelola pesanan pelanggan yang sedang berjalan.'}
               {activeTab === 'riwayat' && 'Seluruh histori transaksi pelanggan yang tercatat.'}
               {activeTab === 'statistik' && 'Statistik performa penjualan dan total pendapatan.'}
+              {activeTab === 'qrcodes' && 'Buat QR Code meja secara instan dan daftarkan ke database.'}
             </p>
           </div>
           <div className="header-actions">
             <button 
               className="refresh-btn" 
-              onClick={() => fetchOrders(true)}
+              onClick={() => { fetchOrders(true); fetchQrcodes(); }}
               disabled={refreshing}
             >
               {refreshing ? 'Memuat...' : '🔄 Perbarui'}
@@ -357,6 +461,7 @@ function DashboardKasir() {
             {activeTab === 'antrean' && 'Antrean Aktif'}
             {activeTab === 'riwayat' && 'Semua Riwayat Pesanan'}
             {activeTab === 'statistik' && 'Analisis & Omzet'}
+            {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
           </h2>
 
           {error && <div className="auth-error" style={{ maxWidth: '100%' }}>{error}</div>}
@@ -533,6 +638,111 @@ function DashboardKasir() {
                 </div>
               </div>
             </>
+          )}
+
+          {/* Tab 4: Generate QR Meja */}
+          {activeTab === 'qrcodes' && (
+            <div className="qrcode-manager-layout">
+              {/* Left Column: Input and Live Preview */}
+              <div className="qrcode-generator-card">
+                <h3 className="generator-title">⚙️ Buat QR Code Meja Baru</h3>
+                
+                {qrError && <div className="auth-error" style={{ marginBottom: '16px' }}>{qrError}</div>}
+                {qrSuccess && (
+                  <div className="auth-error" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#a7f3d0', marginBottom: '16px' }}>
+                    {qrSuccess}
+                  </div>
+                )}
+                
+                <form onSubmit={handleRegisterQrCode} className="qr-form">
+                  <div className="form-group">
+                    <label className="form-label">Nomor Meja</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="Masukkan nomor meja (misal: 1, 2, dst)"
+                      value={qrTableNumber}
+                      onChange={(e) => {
+                        setQrTableNumber(e.target.value);
+                        setQrError('');
+                        setQrSuccess('');
+                      }}
+                      min="1"
+                    />
+                  </div>
+                  
+                  <button type="submit" className="auth-btn" style={{ marginTop: '0' }} disabled={qrLoading}>
+                    {qrLoading ? 'Mendaftarkan Meja...' : '💾 Simpan & Daftarkan Meja'}
+                  </button>
+                </form>
+
+                {/* Live Preview Section */}
+                <div className="qr-live-preview-section">
+                  <span className="preview-label">Live Preview QR Code:</span>
+                  <div className="qr-preview-box">
+                    {qrTableNumber ? (
+                      <div className="qr-preview-content">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('http://localhost:5173/?meja=' + qrTableNumber)}`} 
+                          alt={`QR Meja ${qrTableNumber}`}
+                          className="qr-preview-image"
+                        />
+                        <span className="qr-preview-table-label">MEJA {qrTableNumber}</span>
+                        <p className="qr-preview-url">http://localhost:5173/?meja={qrTableNumber}</p>
+                      </div>
+                    ) : (
+                      <div className="qr-preview-placeholder">
+                        <span>Masukkan nomor meja untuk melihat preview QR Code instan</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Active QR Codes */}
+              <div className="qrcode-list-card">
+                <h3 className="generator-title">📋 Daftar Meja Terdaftar ({qrcodes.length})</h3>
+                {qrcodes.length === 0 ? (
+                  <div className="empty-state" style={{ margin: '20px auto 0', maxWidth: '100%' }}>
+                    <div className="empty-icon">📭</div>
+                    <h3 className="empty-title">Belum Ada Meja Terdaftar</h3>
+                    <p className="empty-desc">Silakan buat meja baru di form sebelah kiri.</p>
+                  </div>
+                ) : (
+                  <div className="qrcode-grid">
+                    {qrcodes.map((qr) => (
+                      <div key={qr.id} className="qr-card">
+                        <div className="qr-card-header">
+                          <span className="qr-card-title">📍 Meja {qr.table_number}</span>
+                          <button 
+                            className="qr-card-delete-btn"
+                            onClick={() => handleDeleteQrCode(qr.id)}
+                            title="Hapus Meja"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                        <div className="qr-card-body">
+                          <img 
+                            src={qr.qr_code_url} 
+                            alt={`QR Meja ${qr.table_number}`} 
+                            className="qr-card-image"
+                          />
+                          <a 
+                            href={qr.qr_code_url}
+                            target="_blank"
+                            rel="noopener noreferrer" 
+                            className="qr-card-link"
+                          >
+                            Buka / Unduh QR
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </main>
       </div>

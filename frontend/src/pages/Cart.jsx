@@ -53,6 +53,7 @@ function Cart() {
         table_number: parseInt(tableNumber),
         total_amount: totalPrice,
         items: cartItems.map(item => ({
+          product_id: item.id,
           menu_item_id: item.id,
           quantity: item.quantity,
           price: item.price,

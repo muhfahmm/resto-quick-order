@@ -6,17 +6,17 @@ Aplikasi QuickOrder Restaurant adalah sistem pemesanan mandiri (self-ordering sy
 yang terdiri dari tiga komponen utama:
 1. Web User Interface (Frontend Pelanggan)
 2. Admin/Kasir Panel (Manajemen Restoran)
-3. Backend API (Server & Database)
+3. Backend API (Server & Database MySQL)
 
 Berikut adalah panduan lengkap cara mengakses masing-masing bagian:
 
 --------------------------------------------------------------------------------
 1. WEB USER INTERFACE (FRONTEND PELANGGAN)
 --------------------------------------------------------------------------------
-* Status: Aktif & Siap Digunakan (Fokus Utama Fase 1)
+* Status: Aktif & Terintegrasi Database Fisik (MySQL)
 * URL Akses Lokal: http://localhost:5173/
 * Konsep Akses:
-  Pelanggan akan memindai QR Code di meja mereka. QR Code tersebut mengarah ke URL
+  Pelanggan memindai QR Code di meja mereka. QR Code tersebut mengarah ke URL
   aplikasi dengan menyertakan parameter nomor meja ("meja").
 
 * Cara Mengakses (Uji Coba):
@@ -24,15 +24,15 @@ Berikut adalah panduan lengkap cara mengakses masing-masing bagian:
   dari meja tertentu. Contoh:
   - Meja 11: http://localhost:5173/?meja=11
   - Meja 5 : http://localhost:5173/?meja=5
-  - Meja 1 : http://localhost:5173/  (Secara default akan diarahkan ke Meja 1 jika parameter kosong)
+  (Jika nomor meja tidak terdaftar di tb_qrcodes database, akses akan diblokir)
 
 * Alur Navigasi Pelanggan:
-  1. Halaman Menu Utama (`/`): Menampilkan list kategori (Semua, Makanan, Minuman,
-     Cemilan) serta menu makanan dengan gambar yang menarik.
+  1. Halaman Menu Utama (`/`): Menampilkan list kategori (Makanan, Minuman, Snack)
+     serta menu masakan dari tabel `tb_products` database.
   2. Keranjang Belanja (`/cart?meja=X`): Menampilkan pesanan yang dipilih, jumlah,
-     catatan khusus, dan total harga.
+     dan total harga.
   3. Konfirmasi Pesanan (`/order-success?meja=X`): Halaman sukses setelah pelanggan
-     mengirimkan pesanan. Sistem akan mengosongkan keranjang dan menampilkan ID Pesanan.
+     mengirimkan pesanan. Sistem memasukkan order ke `tb_orders` & `tb_orders_items`.
 
 --------------------------------------------------------------------------------
 2. ADMIN / KASIR PANEL (ADMIN PANEL)
@@ -42,21 +42,29 @@ Berikut adalah panduan lengkap cara mengakses masing-masing bagian:
 * Cara Akses:
   - URL Akses Lokal: http://localhost:5174/
   - Halaman Login (`/`): Masuk menggunakan username `admin` dan password `admin123`.
-  - Dashboard Kasir (`/dashboard`): Menampilkan pesanan masuk secara real-time dari pelanggan
-    serta memungkinkan kasir mengubah status pesanan (Proses, Batalkan, Selesaikan).
-  - Integrasi: Menghubungkan secara dinamis ke REST API Backend di port 3001.
-
+  - Halaman Register (`/register`): Registrasi admin baru dengan validasi username & password.
+  - Dashboard Kasir (`/dashboard`):
+    - Antrean Aktif: Mengelola pesanan masuk secara real-time.
+    - Semua Riwayat: Riwayat pesanan dan statusnya.
+    - Generate QR Meja: Input nomor meja, preview QR Code live, daftarkan ke database,
+      serta manajemen (hapus/tambah) meja aktif.
+    - Analisis & Omzet: Grafik statistik omzet penjualan restoran.
 
 --------------------------------------------------------------------------------
 3. BACKEND API (SERVER UTAMA)
 --------------------------------------------------------------------------------
-* Status: Aktif (Menggunakan Dummy Data sementara untuk mendukung Frontend)
-* URL Akses Lokal: http://localhost:3001/
+* Status: Aktif & Terhubung MySQL XAMPP (Port 3001)
 * Endpoint yang Tersedia:
-  - GET    /api/categories  : Mengambil data kategori menu
-  - GET    /api/menu        : Mengambil data menu (dapat difilter berdasarkan kategori)
-  - POST   /api/orders      : Mengirim data pesanan baru dari meja pelanggan
-  
+  - GET    /api/categories         : Mengambil data kategori menu (`tb_categories`)
+  - GET    /api/menu               : Mengambil data menu makanan/minuman (`tb_products`)
+  - GET    /api/tables/:table_num  : Verifikasi meja aktif (`tb_qrcodes`)
+  - POST   /api/orders             : Mengirim pesanan baru (`tb_orders` & `tb_orders_items`)
+  - GET    /api/orders             : Mengambil data riwayat pesanan (JOIN query)
+  - PATCH  /api/orders/:id/status  : Mengubah status pesanan
+  - GET    /api/qrcodes            : Mendapatkan seluruh daftar QR Code meja
+  - POST   /api/qrcodes            : Mendaftarkan QR Code meja baru
+  - DELETE /api/qrcodes/:id        : Menghapus QR Code meja dari database
+
 --------------------------------------------------------------------------------
 CARA MENJALANKAN SELURUH APLIKASI
 --------------------------------------------------------------------------------
@@ -64,5 +72,6 @@ Cukup jalankan satu perintah di root project folder (quick_order_restaurant):
 
   npm run dev
 
-Perintah ini menggunakan module `concurrently` untuk menyalakan frontend (port 5173)
-dan backend (port 3001) secara bersamaan.
+Untuk inisialisasi awal database (skema `tb_`):
+1. Reset database: `npm run reset-db`
+2. Seed data uji coba: `npm run seed-test`

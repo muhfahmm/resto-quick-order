@@ -63,12 +63,12 @@ async function initDatabase() {
 async function seedData() {
   try {
     // Check if admins exist
-    const [admins] = await pool.query('SELECT COUNT(*) as count FROM admins');
+    const [admins] = await pool.query('SELECT COUNT(*) as count FROM tb_admin');
     if (admins[0].count === 0) {
       console.log('🌱 Seeding default admin...');
       const hashedPassword = await bcrypt.hash('admin123', 10);
       await pool.query(
-        'INSERT INTO admins (username, password) VALUES (?, ?)',
+        'INSERT INTO tb_admin (username, password) VALUES (?, ?)',
         ['admin', hashedPassword]
       );
       console.log('✅ Default admin "admin" / "admin123" seeded.');
