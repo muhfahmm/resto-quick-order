@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 
-function Navbar({ tableNumber }) {
+function Navbar({ tableNumber, onOpenScanner }) {
   const navigate = useNavigate();
   const { totalItems } = useCart();
 
@@ -12,12 +12,12 @@ function Navbar({ tableNumber }) {
           <span className="navbar-logo">🍽️</span>
           <span className="navbar-title">QuickOrder</span>
           {tableNumber ? (
-            <div className="navbar-table" id="table-indicator">
+            <div className="navbar-table" id="table-indicator" onClick={onOpenScanner} style={{ cursor: 'pointer' }}>
               <span className="navbar-table-icon">📍</span>
-              Meja {tableNumber}
+              Meja {tableNumber} (Ubah)
             </div>
           ) : (
-            <div className="navbar-table" id="table-indicator" style={{ background: 'rgba(251, 191, 36, 0.12)', color: 'var(--color-warning)' }}>
+            <div className="navbar-table" id="table-indicator" onClick={onOpenScanner} style={{ background: 'rgba(251, 191, 36, 0.12)', color: 'var(--color-warning)', cursor: 'pointer' }}>
               <span className="navbar-table-icon">⚠️</span>
               Perlu scan QR Code
             </div>
@@ -25,6 +25,16 @@ function Navbar({ tableNumber }) {
         </div>
 
         <div className="navbar-actions">
+          {onOpenScanner && (
+            <button
+              className="btn-scanner-trigger-nav"
+              onClick={onOpenScanner}
+              title="Pindai QR Code Meja"
+              aria-label="Scan QR Code Meja"
+            >
+              📷 <span className="nav-scan-text">Scan Meja</span>
+            </button>
+          )}
           <button
             className="cart-button"
             id="cart-nav-button"

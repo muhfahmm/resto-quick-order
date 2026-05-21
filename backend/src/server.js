@@ -3,6 +3,9 @@ const cors = require('cors');
 const pool = require('./config/db');
 const initDatabase = require('./config/initDb');
 const bcrypt = require('bcryptjs');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -10,6 +13,24 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve uploaded files
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
+// Multer setup for handling file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const safeName = file.originalname.replace(/[^a-z0-9.\-\_]/gi, '_');
+    cb(null, `${unique}-${safeName}`);
+  }
+});
+const upload = multer({ storage });
 
 // Handle malformed JSON body errors from body-parser
 app.use((err, req, res, next) => {
@@ -114,10 +135,10 @@ app.get('/api/menu', async (req, res) => {
 
 // POST pesanan baru dari meja
 app.post('/api/orders', async (req, res) => {
-  const { table_number, items, total_amount } = req.body;
+  const { table_number, items, total_amount, customer_name } = req.body;
 
-  if (!table_number || !items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ success: false, message: 'Data pesanan tidak lengkap atau tidak valid' });
+  if (!table_number || !customer_name || !customer_name.trim() || !items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, message: 'Nama pemesan dan data pesanan wajib diisi!' });
   }
 
   const conn = await pool.getConnection();
@@ -127,8 +148,8 @@ app.post('/api/orders', async (req, res) => {
 
     // 1. Insert into tb_orders table
     const [orderResult] = await conn.query(
-      'INSERT INTO tb_orders (table_number, total_amount, status, payment_status) VALUES (?, ?, ?, ?)',
-      [table_number, total_amount, 'pending', 'unpaid']
+      'INSERT INTO tb_orders (table_number, customer_name, total_amount, status, payment_status) VALUES (?, ?, ?, ?, ?)',
+      [table_number, customer_name.trim(), total_amount, 'pending', 'unpaid']
     );
     const orderId = orderResult.insertId;
 
@@ -155,7 +176,7 @@ app.post('/api/orders', async (req, res) => {
     await conn.commit();
     conn.release();
 
-    console.log(`\x1b[32m[USER ACTION]\x1b[0m 🔔 Pesanan baru disimpan ke database: Meja ${table_number}!`);
+    console.log(`\x1b[32m[USER ACTION]\x1b[0m 🔔 Pesanan baru disimpan ke database: Meja ${table_number} (${customer_name.trim()})!`);
     console.log(`   ID Pesanan: ${orderId}`);
     console.log(`   Total: Rp ${total_amount?.toLocaleString('id-ID')}`);
     console.log(`   Items: ${items?.length} item(s)`);
@@ -167,6 +188,7 @@ app.post('/api/orders', async (req, res) => {
         order_id: orderId.toString(), // client looks for result.data.order_id
         id: orderId.toString(),
         table_number,
+        customer_name: customer_name.trim(),
         total_amount,
         status: 'pending',
         order_time: new Date().toISOString()
@@ -253,8 +275,17 @@ app.post('/api/auth/login', async (req, res) => {
 
 // GET semua pesanan (dashboard kasir)
 app.get('/api/orders', async (req, res) => {
+  const { table_number } = req.query;
   try {
-    const [orders] = await pool.query('SELECT * FROM tb_orders ORDER BY order_time DESC');
+    let queryStr = 'SELECT * FROM tb_orders';
+    const params = [];
+    if (table_number) {
+      queryStr += ' WHERE table_number = ?';
+      params.push(parseInt(table_number));
+    }
+    queryStr += ' ORDER BY order_time DESC';
+
+    const [orders] = await pool.query(queryStr, params);
     if (orders.length === 0) {
       console.log(`\x1b[36m[ADMIN ACTION]\x1b[0m 📋 Dashboard kasir menarik semua data pesanan (0 pesanan total).`);
       return res.json({ success: true, data: [] });
@@ -286,6 +317,7 @@ app.get('/api/orders', async (req, res) => {
     const formattedOrders = orders.map(order => ({
       id: order.id.toString(),
       table_number: order.table_number,
+      customer_name: order.customer_name,
       total_amount: parseFloat(order.total_amount),
       status: order.status,
       order_time: order.order_time,
@@ -351,6 +383,32 @@ app.get('/api/qrcodes', async (req, res) => {
   }
 });
 
+const os = require('os');
+
+function getLocalIpAddress() {
+  const interfaces = os.networkInterfaces();
+  const candidateIps = [];
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        if (iface.address.startsWith('169.254.')) {
+          continue;
+        }
+        candidateIps.push(iface.address);
+      }
+    }
+  }
+
+  const priorityIp = candidateIps.find(ip => 
+    ip.startsWith('192.168.') || 
+    ip.startsWith('10.') || 
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)
+  );
+
+  return priorityIp || candidateIps[0] || 'localhost';
+}
+
 // POST daftarkan QR Code meja baru
 app.post('/api/qrcodes', async (req, res) => {
   const { table_number } = req.body;
@@ -371,7 +429,8 @@ app.post('/api/qrcodes', async (req, res) => {
     }
 
     // Generate QR Code URL
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('http://localhost:5173/?meja=' + tableNum)}`;
+    const localIp = getLocalIpAddress();
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`http://${localIp}:5173/?meja=${tableNum}`)}`;
 
     const [result] = await pool.query(
       'INSERT INTO tb_qrcodes (table_number, qr_code_url) VALUES (?, ?)',
@@ -484,6 +543,19 @@ app.post('/api/products', async (req, res) => {
   } catch (err) {
     console.error('Error creating product:', err);
     res.status(500).json({ success: false, message: 'Gagal membuat produk' });
+  }
+});
+
+// POST upload file (image)
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+    // Build accessible URL assuming server is at localhost:3001
+    const url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    res.json({ success: true, url, filename: req.file.filename });
+  } catch (err) {
+    console.error('Error handling upload:', err);
+    res.status(500).json({ success: false, message: 'Gagal mengunggah file' });
   }
 });
 

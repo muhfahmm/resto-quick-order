@@ -1,5 +1,30 @@
 const mysql = require('mysql2/promise');
 const pool = require('./db');
+const os = require('os');
+
+function getLocalIpAddress() {
+  const interfaces = os.networkInterfaces();
+  const candidateIps = [];
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        if (iface.address.startsWith('169.254.')) {
+          continue;
+        }
+        candidateIps.push(iface.address);
+      }
+    }
+  }
+
+  const priorityIp = candidateIps.find(ip => 
+    ip.startsWith('192.168.') || 
+    ip.startsWith('10.') || 
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)
+  );
+
+  return priorityIp || candidateIps[0] || 'localhost';
+}
 
 async function seedTestData() {
   console.log('🌱 Starting manual test seeding...');
@@ -11,7 +36,8 @@ async function seedTestData() {
     // 1. Seed Meja 11 in tb_qrcodes
     console.log('🌱 Seeding Meja 11...');
     const tableNumber = 11;
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('http://localhost:5173/?meja=' + tableNumber)}`;
+    const localIp = getLocalIpAddress();
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`http://${localIp}:5173/?meja=${tableNumber}`)}`;
     
     await connection.query(
       'INSERT INTO tb_qrcodes (table_number, qr_code_url) VALUES (?, ?) ON DUPLICATE KEY UPDATE qr_code_url = ?',

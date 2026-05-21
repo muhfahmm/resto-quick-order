@@ -11,7 +11,7 @@ function Kategori() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/categories');
+      const res = await fetch('http://192.168.100.3:3001/api/categories');
       const data = await res.json();
       if (res.ok && data.success) setCategories(data.data);
     } catch (err) {
@@ -32,7 +32,7 @@ function Kategori() {
     setSaving(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:3001/api/categories', {
+      const res = await fetch('http://192.168.100.3:3001/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description })
@@ -66,7 +66,7 @@ function Kategori() {
   const handleDelete = async (id) => {
     if (!confirm('Hapus kategori ini? Aksi tidak dapat dibatalkan.')) return;
     try {
-      const res = await fetch(`http://localhost:3001/api/categories/${id}`, { method: 'DELETE' });
+      const res = await fetch(`http://192.168.100.3:3001/api/categories/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (res.ok && data.success) {
         fetchCategories();
@@ -104,18 +104,29 @@ function Kategori() {
         ) : categories.length === 0 ? (
           <div className="empty-state">Belum ada kategori</div>
         ) : (
-          <div className="list-group">
-            {categories.map(cat => (
-              <div key={cat.id} className="list-item">
-                <div>
-                  <strong>{cat.name}</strong>
-                  {cat.description && <div className="muted">{cat.description}</div>}
-                </div>
-                <div>
-                  <button className="btn-small" onClick={() => handleDelete(cat.id)}>Hapus</button>
-                </div>
-              </div>
-            ))}
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nama</th>
+                  <th>Deskripsi</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((cat, idx) => (
+                  <tr key={cat.id}>
+                    <td>{idx + 1}</td>
+                    <td>{cat.name}</td>
+                    <td>{cat.description || '-'}</td>
+                    <td className="table-actions">
+                      <button className="btn-small" onClick={() => handleDelete(cat.id)}>Hapus</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

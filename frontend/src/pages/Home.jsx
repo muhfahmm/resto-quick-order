@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import TabMenu from '../components/TabMenu';
 import MenuCard from '../components/MenuCard';
+import CameraScanner from '../components/CameraScanner';
 import { useCart } from '../context/CartContext';
 import { getCategories, getMenuItems, formatPrice, validateTable } from '../services/api';
 
@@ -11,6 +12,8 @@ function Home() {
   const navigate = useNavigate();
   const rawTable = searchParams.get('meja');
   const tableNumber = (rawTable && rawTable !== 'null' && rawTable !== 'undefined') ? rawTable : null;
+
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     if (tableNumber) {
@@ -25,6 +28,31 @@ function Home() {
   const [activeCategory, setActiveCategory] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const handleScanSuccess = (decodedText) => {
+    let scannedTable = '';
+    
+    // Check if the decoded text is a URL
+    if (decodedText.startsWith('http://') || decodedText.startsWith('https://')) {
+      try {
+        const url = new URL(decodedText);
+        scannedTable = url.searchParams.get('meja') || '';
+      } catch (e) {
+        console.error("Gagal memparsing URL QR Code:", e);
+      }
+    } else {
+      // Direct raw table number
+      scannedTable = decodedText.trim();
+    }
+    
+    if (scannedTable) {
+      console.log(`%c[QR SCAN SUCCESS] Mendapatkan meja: ${scannedTable}`, 'color: #34d399; font-weight: bold;');
+      navigate(`/?meja=${scannedTable}`);
+      setShowScanner(false);
+    } else {
+      alert("QR Code tidak valid. Pastikan QR Code berisi nomor meja yang valid.");
+    }
+  };
 
   const { totalItems, totalPrice } = useCart();
 
@@ -61,7 +89,7 @@ function Home() {
 
   return (
     <div className="app-container">
-      <Navbar tableNumber={tableNumber} />
+      <Navbar tableNumber={tableNumber} onOpenScanner={() => setShowScanner(true)} />
 
       <div className="page-content">
         {/* Hero Section */}
@@ -82,6 +110,13 @@ function Home() {
             <div>
               <h3>Perlu Scan QR Code</h3>
               <p>Menu dapat dilihat, tetapi Anda perlu memindai QR Code di meja Anda untuk melakukan pemesanan.</p>
+              <button
+                className="btn-scanner-trigger"
+                onClick={() => setShowScanner(true)}
+                style={{ marginTop: '12px' }}
+              >
+                📷 Hubungkan Kamera & Scan
+              </button>
             </div>
           </div>
         )}
@@ -143,6 +178,14 @@ function Home() {
           </div>
           <span className="floating-cart-total">{formatPrice(totalPrice)}</span>
         </button>
+      )}
+
+      {/* QR Camera Scanner Overlay */}
+      {showScanner && (
+        <CameraScanner
+          onClose={() => setShowScanner(false)}
+          onScanSuccess={handleScanSuccess}
+        />
       )}
     </div>
   );

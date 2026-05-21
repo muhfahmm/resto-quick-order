@@ -2,7 +2,8 @@
 // API Service - QuickOrder Restaurant
 // ==============================
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const API_BASE_URL = `http://${hostname}:3001/api`;
 
 // Import gambar menu
 import nasiGoreng from '../assets/nasi-goreng.png';
@@ -38,7 +39,15 @@ const imageMap = {
  * Resolves image path — returns the imported asset for local images
  */
 export function getMenuImage(imageUrl) {
-  return imageMap[imageUrl] || imageUrl;
+  if (!imageUrl) return '';
+  let resolvedUrl = imageMap[imageUrl] || imageUrl;
+  const activeHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  if (typeof resolvedUrl === 'string') {
+    resolvedUrl = resolvedUrl
+      .replace('localhost:3001', `${activeHost}:3001`)
+      .replace('192.168.100.3:3001', `${activeHost}:3001`);
+  }
+  return resolvedUrl;
 }
 
 /**
@@ -109,6 +118,18 @@ export async function validateTable(tableNumber) {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || `Meja ${tableNumber} tidak terdaftar di database`);
+  }
+  const data = await res.json();
+  return data.data;
+}
+
+/**
+ * Ambil pesanan berdasarkan nomor meja
+ */
+export async function getTableOrders(tableNumber) {
+  const res = await fetch(`${API_BASE_URL}/orders?table_number=${tableNumber}`);
+  if (!res.ok) {
+    throw new Error('Gagal mengambil data pesanan meja dari database');
   }
   const data = await res.json();
   return data.data;

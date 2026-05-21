@@ -2,10 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Produk from './Produk';
 import Kategori from './Kategori';
+import Antrean from '../sidebar-menu/Antrean';
+import Riwayat from '../sidebar-menu/Riwayat';
+import Statistik from '../sidebar-menu/Statistik';
+import QrCodes from '../sidebar-menu/QrCodes';
+import ProdukTab from '../sidebar-menu/ProdukTab';
+import KategoriTab from '../sidebar-menu/KategoriTab';
+import { PinIcon, ClockIcon, CookIcon, CheckIcon, RefreshIcon, TrashIcon, CogIcon } from '../components/TwIcons';
 
 function DashboardKasir() {
   const navigate = useNavigate();
   const location = useLocation();
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const API_BASE_URL = `http://${hostname}:3001/api`;
+  const CLIENT_BASE_URL = `http://${hostname}:5173`;
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,7 +39,7 @@ function DashboardKasir() {
   const fetchOrders = async (showIndicator = false) => {
     if (showIndicator) setRefreshing(true);
     try {
-      const response = await fetch('http://localhost:3001/api/orders', {
+      const response = await fetch(`${API_BASE_URL}/orders`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
         }
@@ -43,7 +54,7 @@ function DashboardKasir() {
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError('Gagal terhubung ke API backend (port 3001).');
+      setError('Gagal terhubung ke API backend (IP 192.168.100.3:3001).');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -53,7 +64,7 @@ function DashboardKasir() {
   // Fetch QR codes
   const fetchQrcodes = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/qrcodes', {
+      const response = await fetch(`${API_BASE_URL}/qrcodes`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
         }
@@ -93,7 +104,7 @@ function DashboardKasir() {
   // Update order status
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/orders/${orderId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -127,7 +138,7 @@ function DashboardKasir() {
     setQrSuccess('');
     
     try {
-      const response = await fetch('http://localhost:3001/api/qrcodes', {
+      const response = await fetch(`${API_BASE_URL}/qrcodes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +169,7 @@ function DashboardKasir() {
     }
     
     try {
-      const response = await fetch(`http://localhost:3001/api/qrcodes/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/qrcodes/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
@@ -250,7 +261,7 @@ function DashboardKasir() {
   const renderOrderCard = (order) => (
     <div key={order.id} className="order-card" id={`order-card-${order.id}`}>
       <div className="order-card-header">
-        <span className="order-meja">📍 Meja {order.table_number}</span>
+        <span className="order-meja"><PinIcon /> Meja {order.table_number}</span>
         <span className="order-time">{formatTime(order.order_time)}</span>
       </div>
       
@@ -283,27 +294,12 @@ function DashboardKasir() {
       <div className="order-actions">
         {(order.status === 'pending') && (
           <>
-            <button 
-              className="btn-action process"
-              onClick={() => handleUpdateStatus(order.id, 'processing')}
-            >
-              🍳 Proses
-            </button>
-            <button 
-              className="btn-action cancel"
-              onClick={() => handleUpdateStatus(order.id, 'cancelled')}
-            >
-              ❌ Tolak
-            </button>
+            <button className="btn-action process" onClick={() => handleUpdateStatus(order.id, 'processing')}><CookIcon /> Proses</button>
+            <button className="btn-action cancel" onClick={() => handleUpdateStatus(order.id, 'cancelled')}><TrashIcon /> Tolak</button>
           </>
         )}
         {(order.status === 'processing' || order.status === 'diproses') && (
-          <button 
-            className="btn-action complete"
-            onClick={() => handleUpdateStatus(order.id, 'completed')}
-          >
-            ✅ Selesaikan
-          </button>
+          <button className="btn-action complete" onClick={() => handleUpdateStatus(order.id, 'completed')}><CheckIcon /> Selesaikan</button>
         )}
         {(order.status === 'completed' || order.status === 'selesai' || order.status === 'cancelled') && (
           <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 'auto', textAlign: 'center' }}>
@@ -409,7 +405,7 @@ function DashboardKasir() {
               <line x1="9" y1="16" x2="15" y2="16" />
               <line x1="9" y1="8" x2="10" y2="8" />
             </svg>
-            <span className="menu-text">Semua Riwayat</span>
+            <span className="menu-text">Pesanan</span>
           </button>
 
           <button 
@@ -468,7 +464,7 @@ function DashboardKasir() {
           <div className="header-info">
             <h1 className="header-title">
               {activeTab === 'antrean' && 'Antrean Aktif'}
-              {activeTab === 'riwayat' && 'Semua Riwayat Pesanan'}
+              {activeTab === 'riwayat' && 'Semua Pesanan'}
               {activeTab === 'statistik' && 'Analisis & Omzet'}
               {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
               {activeTab === 'produk' && 'Manajemen Produk'}
@@ -476,7 +472,7 @@ function DashboardKasir() {
             </h1>
             <p className="header-subtitle">
               {activeTab === 'antrean' && 'Kelola pesanan pelanggan yang sedang berjalan.'}
-              {activeTab === 'riwayat' && 'Seluruh histori transaksi pelanggan yang tercatat.'}
+              {activeTab === 'riwayat' && 'Seluruh daftar pesanan pelanggan yang tercatat.'}
               {activeTab === 'statistik' && 'Statistik performa penjualan dan total pendapatan.'}
               {activeTab === 'qrcodes' && 'Buat QR Code meja secara instan dan daftarkan ke database.'}
               {activeTab === 'produk' && 'Tambah, sunting, atau hapus produk yang tersedia di menu.'}
@@ -484,12 +480,8 @@ function DashboardKasir() {
             </p>
           </div>
           <div className="header-actions">
-            <button 
-              className="refresh-btn" 
-              onClick={() => { fetchOrders(true); fetchQrcodes(); }}
-              disabled={refreshing}
-            >
-              {refreshing ? 'Memuat...' : '🔄 Perbarui'}
+            <button className="refresh-btn" onClick={() => { fetchOrders(true); fetchQrcodes(); }} disabled={refreshing}>
+              {refreshing ? 'Memuat...' : (<><RefreshIcon /> Perbarui</>)}
             </button>
           </div>
         </header>
@@ -498,7 +490,7 @@ function DashboardKasir() {
         <main className="dashboard-content">
           <h2 className="mobile-view-title">
             {activeTab === 'antrean' && 'Antrean Aktif'}
-            {activeTab === 'riwayat' && 'Semua Riwayat Pesanan'}
+            {activeTab === 'riwayat' && 'Semua Pesanan'}
             {activeTab === 'statistik' && 'Analisis & Omzet'}
             {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
             {activeTab === 'produk' && 'Manajemen Produk'}
@@ -507,297 +499,60 @@ function DashboardKasir() {
 
           {error && <div className="auth-error" style={{ maxWidth: '100%' }}>{error}</div>}
 
-          {/* Tab 1: Antrean Aktif */}
           {activeTab === 'antrean' && (
-            <>
-              {/* Active stats summary cards */}
-              <div className="stats-grid" style={{ marginBottom: '24px' }}>
-                <div className="stat-card" style={{ borderLeft: '4px solid var(--color-status-pending)' }}>
-                  <div className="stat-info">
-                    <h3>Belum Diproses</h3>
-                    <p>{pendingCount}</p>
-                  </div>
-                  <span className="stat-icon">⏳</span>
-                </div>
-                <div className="stat-card" style={{ borderLeft: '4px solid var(--color-status-processing)' }}>
-                  <div className="stat-info">
-                    <h3>Sedang Dibuat</h3>
-                    <p>{processingCount}</p>
-                  </div>
-                  <span className="stat-icon">🍳</span>
-                </div>
-              </div>
-
-              {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
-                  <div className="spinner" style={{ borderTopColor: 'var(--color-primary)' }}></div>
-                </div>
-              ) : orders.filter(o => o.status === 'pending' || o.status === 'processing' || o.status === 'diproses').length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📭</div>
-                  <h3 className="empty-title">Belum Ada Antrean Aktif</h3>
-                  <p className="empty-desc">Semua pesanan pelanggan telah diproses atau dibatalkan.</p>
-                </div>
-              ) : (
-                <div className="orders-grid">
-                  {orders
-                    .filter(o => o.status === 'pending' || o.status === 'processing' || o.status === 'diproses')
-                    .map(order => renderOrderCard(order))}
-                </div>
-              )}
-            </>
+            <Antrean orders={orders} loading={loading} onUpdateStatus={handleUpdateStatus} formatPrice={formatPrice} formatTime={formatTime} />
           )}
 
-          {/* Tab 2: Semua Riwayat */}
           {activeTab === 'riwayat' && (
-            <>
-              {/* History Sub Filters */}
-              <div className="history-filters">
-                <button 
-                  className={`filter-pill ${historyFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setHistoryFilter('all')}
-                >
-                  Semua Riwayat ({orders.filter(o => o.status === 'completed' || o.status === 'selesai' || o.status === 'cancelled').length})
-                </button>
-                <button 
-                  className={`filter-pill ${historyFilter === 'completed' ? 'active' : ''}`}
-                  onClick={() => setHistoryFilter('completed')}
-                >
-                  Selesai ({completedCount})
-                </button>
-                <button 
-                  className={`filter-pill ${historyFilter === 'cancelled' ? 'active' : ''}`}
-                  onClick={() => setHistoryFilter('cancelled')}
-                >
-                  Dibatalkan ({orders.filter(o => o.status === 'cancelled').length})
-                </button>
-              </div>
-
-              {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
-                  <div className="spinner" style={{ borderTopColor: 'var(--color-primary)' }}></div>
-                </div>
-              ) : historyOrders.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📭</div>
-                  <h3 className="empty-title">Tidak Ada Riwayat Pesanan</h3>
-                  <p className="empty-desc">Belum ada transaksi dengan status pencarian ini.</p>
-                </div>
-              ) : (
-                <div className="orders-grid">
-                  {historyOrders.map(order => renderOrderCard(order))}
-                </div>
-              )}
-            </>
+            <Riwayat orders={orders} loading={loading} historyFilter={historyFilter} setHistoryFilter={setHistoryFilter} formatPrice={formatPrice} formatTime={formatTime} />
           )}
 
-          {/* Tab 3: Analisis & Omzet */}
           {activeTab === 'statistik' && (
-            <>
-              {/* Full stats grid */}
-              <div className="stats-grid">
-                <div className="stat-card" style={{ borderLeft: '4px solid var(--color-status-pending)' }}>
-                  <div className="stat-info">
-                    <h3>Belum Diproses</h3>
-                    <p>{pendingCount}</p>
-                  </div>
-                  <span className="stat-icon">⏳</span>
-                </div>
-                <div className="stat-card" style={{ borderLeft: '4px solid var(--color-status-processing)' }}>
-                  <div className="stat-info">
-                    <h3>Sedang Dibuat</h3>
-                    <p>{processingCount}</p>
-                  </div>
-                  <span className="stat-icon">🍳</span>
-                </div>
-                <div className="stat-card" style={{ borderLeft: '4px solid var(--color-status-completed)' }}>
-                  <div className="stat-info">
-                    <h3>Pesanan Selesai</h3>
-                    <p>{completedCount}</p>
-                  </div>
-                  <span className="stat-icon">✅</span>
-                </div>
-                <div className="stat-card" style={{ borderLeft: '4px solid var(--color-primary)' }}>
-                  <div className="stat-info">
-                    <h3>Omzet Selesai</h3>
-                    <p style={{ fontSize: '1.4rem' }}>{formatPrice(totalIncome)}</p>
-                  </div>
-                  <span className="stat-icon">💰</span>
-                </div>
-              </div>
-
-              <div className="analytics-grid">
-                {/* Completion Rate Card */}
-                <div className="analytics-card">
-                  <h3 className="analytics-card-title">Persentase Penyelesaian</h3>
-                  <div className="completed-rate-section">
-                    <div 
-                      className="completed-rate-circle" 
-                      style={{ 
-                        background: `radial-gradient(closest-side, var(--color-bg-card) 79%, transparent 80% 100%), conic-gradient(var(--color-status-completed) ${Math.round((completedCount / (orders.length || 1)) * 100)}%, rgba(255, 255, 255, 0.05) 0)`
-                      }}
-                    >
-                      <span className="completed-rate-value">
-                        {Math.round((completedCount / (orders.length || 1)) * 100)}%
-                      </span>
-                    </div>
-                    <div className="rate-details">
-                      <h4>Penyelesaian Pesanan</h4>
-                      <p>{completedCount} dari {orders.length} Total Pesanan</p>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontWeight: '500', marginTop: '6px' }}>
-                        Nilai Rata-rata Pesanan: {formatPrice(totalIncome / (completedCount || 1))}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Best Selling Items Card */}
-                <div className="analytics-card">
-                  <h3 className="analytics-card-title">Menu Terlaris (Top 5)</h3>
-                  <div className="top-items-list">
-                    {topItems.length === 0 ? (
-                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
-                        Belum ada menu yang terjual dari pesanan selesai.
-                      </p>
-                    ) : (
-                      topItems.map((item, idx) => (
-                        <div key={idx} className="top-item-row-analytic">
-                          <div className="top-item-info">
-                            <span>{item.name}</span>
-                            <span style={{ color: 'var(--color-accent)', fontWeight: 'bold' }}>{item.qty} porsi</span>
-                          </div>
-                          <div className="top-item-bar-bg">
-                            <div 
-                              className="top-item-bar-fill" 
-                              style={{ width: `${(item.qty / maxQty) * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
+            <Statistik orders={orders} totalIncome={totalIncome} topItems={topItems} maxQty={maxQty} pendingCount={pendingCount} processingCount={processingCount} completedCount={completedCount} formatPrice={formatPrice} />
           )}
 
-          {/* Tab 4: Generate QR Meja */}
           {activeTab === 'qrcodes' && (
             <div className="qrcode-manager-layout">
-              {/* Left Column: Input and Live Preview */}
               <div className="qrcode-generator-card">
-                <h3 className="generator-title">⚙️ Buat QR Code Meja Baru</h3>
-                
+                <h3 className="generator-title"><CogIcon /> Buat QR Code Meja Baru</h3>
                 {qrError && <div className="auth-error" style={{ marginBottom: '16px' }}>{qrError}</div>}
-                {qrSuccess && (
-                  <div className="auth-error" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#a7f3d0', marginBottom: '16px' }}>
-                    {qrSuccess}
-                  </div>
-                )}
-                
+                {qrSuccess && (<div className="auth-error" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#a7f3d0', marginBottom: '16px' }}>{qrSuccess}</div>)}
                 <form onSubmit={handleRegisterQrCode} className="qr-form">
                   <div className="form-group">
                     <label className="form-label">Nomor Meja</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      placeholder="Masukkan nomor meja (misal: 1, 2, dst)"
-                      value={qrTableNumber}
-                      onChange={(e) => {
-                        setQrTableNumber(e.target.value);
-                        setQrError('');
-                        setQrSuccess('');
-                      }}
-                      min="1"
-                    />
+                    <input type="number" className="form-input" placeholder="Masukkan nomor meja (misal: 1, 2, dst)" value={qrTableNumber} onChange={(e) => { setQrTableNumber(e.target.value); setQrError(''); setQrSuccess(''); }} min="1" />
                   </div>
-                  
-                  <button type="submit" className="auth-btn" style={{ marginTop: '0' }} disabled={qrLoading}>
-                    {qrLoading ? 'Mendaftarkan Meja...' : '💾 Simpan & Daftarkan Meja'}
-                  </button>
+                  <button type="submit" className="auth-btn" style={{ marginTop: '0' }} disabled={qrLoading}>{qrLoading ? 'Mendaftarkan Meja...' : (<><PinIcon /> Simpan & Daftarkan Meja</>)}</button>
                 </form>
 
-                {/* Live Preview Section */}
                 <div className="qr-live-preview-section">
                   <span className="preview-label">Live Preview QR Code:</span>
                   <div className="qr-preview-box">
                     {qrTableNumber ? (
                       <div className="qr-preview-content">
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('http://localhost:5173/?meja=' + qrTableNumber)}`} 
-                          alt={`QR Meja ${qrTableNumber}`}
-                          className="qr-preview-image"
-                        />
+                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${CLIENT_BASE_URL}/?meja=` + qrTableNumber)}`} alt={`QR Meja ${qrTableNumber}`} className="qr-preview-image" />
                         <span className="qr-preview-table-label">MEJA {qrTableNumber}</span>
-                        <p className="qr-preview-url">http://localhost:5173/?meja={qrTableNumber}</p>
+                        <p className="qr-preview-url">{CLIENT_BASE_URL}/?meja={qrTableNumber}</p>
                       </div>
                     ) : (
-                      <div className="qr-preview-placeholder">
-                        <span>Masukkan nomor meja untuk melihat preview QR Code instan</span>
-                      </div>
+                      <div className="qr-preview-placeholder"><span>Masukkan nomor meja untuk melihat preview QR Code instan</span></div>
                     )}
                   </div>
                 </div>
               </div>
-
-              {/* Right Column: Active QR Codes */}
               <div className="qrcode-list-card">
-                <h3 className="generator-title">📋 Daftar Meja Terdaftar ({qrcodes.length})</h3>
-                {qrcodes.length === 0 ? (
-                  <div className="empty-state" style={{ margin: '20px auto 0', maxWidth: '100%' }}>
-                    <div className="empty-icon">📭</div>
-                    <h3 className="empty-title">Belum Ada Meja Terdaftar</h3>
-                    <p className="empty-desc">Silakan buat meja baru di form sebelah kiri.</p>
-                  </div>
-                ) : (
-                  <div className="qrcode-grid">
-                    {qrcodes.map((qr) => (
-                      <div key={qr.id} className="qr-card">
-                        <div className="qr-card-header">
-                          <span className="qr-card-title">📍 Meja {qr.table_number}</span>
-                          <button 
-                            className="qr-card-delete-btn"
-                            onClick={() => handleDeleteQrCode(qr.id)}
-                            title="Hapus Meja"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                        <div className="qr-card-body">
-                          <img 
-                            src={qr.qr_code_url} 
-                            alt={`QR Meja ${qr.table_number}`} 
-                            className="qr-card-image"
-                          />
-                          <a 
-                            href={qr.qr_code_url}
-                            target="_blank"
-                            rel="noopener noreferrer" 
-                            className="qr-card-link"
-                          >
-                            Buka / Unduh QR
-                          </a>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <h3 className="generator-title"><PinIcon /> Daftar Meja Terdaftar ({qrcodes.length})</h3>
+                <QrCodes qrcodes={qrcodes} loading={false} onDelete={handleDeleteQrCode} />
               </div>
             </div>
           )}
 
-          {/* Tab: Kategori Management */}
           {activeTab === 'kategori' && (
-            <div style={{ width: '100%' }}>
-              <Kategori />
-            </div>
+            <div style={{ width: '100%' }}><KategoriTab /></div>
           )}
 
-          {/* Tab: Produk Management */}
           {activeTab === 'produk' && (
-            <div style={{ width: '100%' }}>
-              <Produk />
-            </div>
+            <div style={{ width: '100%' }}><ProdukTab /></div>
           )}
         </main>
       </div>

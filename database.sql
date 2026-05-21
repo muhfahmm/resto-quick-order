@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS tb_products (
 CREATE TABLE IF NOT EXISTS tb_orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     table_number INT NOT NULL,
+    customer_name VARCHAR(100) NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     status ENUM('pending', 'processing', 'completed', 'cancelled') DEFAULT 'pending',
     payment_status ENUM('unpaid', 'paid') DEFAULT 'unpaid',
