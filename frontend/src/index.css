@@ -1440,4 +1440,309 @@ a {
   color: var(--color-accent);
 }
 
+/* ==============================
+   Payment & Success Modals
+   ============================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 8, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--space-md);
+  animation: fadeIn 0.25s ease;
+}
+
+.success-modal-overlay {
+  align-items: center;
+  background: rgba(8, 8, 8, 0.45);
+}
+
+.pay-method-modal,
+.order-success-modal {
+  width: 100%;
+  max-width: 440px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg), 0 0 40px rgba(0, 0, 0, 0.5);
+  animation: modal-slide-up 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+.order-success-modal {
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.modal-subtitle {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.modal-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-normal);
+}
+
+.modal-close-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.pay-method-list {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.pay-method-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-bg-card);
+  text-align: left;
+  transition: all var(--transition-normal);
+}
+
+.pay-method-option:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.pay-method-option.selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
+}
+
+.pay-method-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  text-align: center;
+}
+
+.pay-method-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pay-method-label {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+}
+
+.pay-method-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.pay-method-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.pay-method-radio.checked {
+  border-color: var(--color-accent);
+}
+
+.pay-method-radio.checked::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.modal-footer,
+.success-modal-actions {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.success-modal-actions {
+  border-top: none;
+  padding: var(--space-lg) 0 0;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 14px var(--space-md);
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--transition-normal);
+}
+
+.modal-btn.primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.modal-btn.primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+.modal-btn.secondary {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.modal-btn.secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.success-modal-icon-ring {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto var(--space-lg);
+}
+
+.success-modal-icon {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.05));
+  border: 2px solid var(--color-success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-success);
+  animation: success-bounce 0.6s var(--transition-spring);
+}
+
+.success-modal-icon svg {
+  width: 44px;
+  height: 44px;
+}
+
+.success-modal-ripple {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--color-success);
+  opacity: 0;
+  animation: ripple-out 1.8s ease-out infinite;
+}
+
+.success-modal-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.success-modal-message {
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-lg);
+}
+
+.success-modal-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.success-detail-chip {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.success-detail-chip.full {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chip-label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chip-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.chip-value.accent {
+  color: var(--color-accent);
+}
+
+@media (min-width: 520px) {
+  .modal-overlay {
+    align-items: center;
+  }
+}
+
 

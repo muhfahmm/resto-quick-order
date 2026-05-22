@@ -50,13 +50,34 @@ async function initDatabase() {
       console.warn('⚠️ database.sql not found at', sqlPath);
     }
     
-    // 3. Seed initial data if tables are empty
+    // 3. Migrate payment_method column if missing
+    await migratePaymentMethod();
+
+    // 4. Seed initial data if tables are empty
     await seedData();
     
   } catch (error) {
     console.error('❌ Database initialization failed:', error.message);
     console.error('👉 Please make sure XAMPP MySQL is running.');
     throw error;
+  }
+}
+
+async function migratePaymentMethod() {
+  try {
+    const [cols] = await pool.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'tb_orders' AND COLUMN_NAME = 'payment_method'`,
+      [database]
+    );
+    if (cols.length === 0) {
+      await pool.query(
+        "ALTER TABLE tb_orders ADD COLUMN payment_method VARCHAR(50) DEFAULT 'cash' AFTER payment_status"
+      );
+      console.log('✅ Column payment_method added to tb_orders.');
+    }
+  } catch (error) {
+    console.warn('⚠️ payment_method migration:', error.message);
   }
 }
 

@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import PayMethod from '../components/PayMethod';
+import OrderSuccessModal from '../components/OrderSuccessModal';
 import { useCart } from '../context/CartContext';
 import { getMenuImage, formatPrice, submitOrder, validateTable, getTableOrders } from '../services/api';
+
+const PAYMENT_LABELS = {
+  cash: 'Tunai',
+  qris: 'QRIS',
+  debit: 'Kartu Debit',
+  ewallet: 'E-Wallet',
+};
 
 function Cart() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const rawTable = searchParams.get('meja');
   const tableNumber = (rawTable && rawTable !== 'null' && rawTable !== 'undefined') ? rawTable : null;
 
@@ -34,9 +44,24 @@ function Cart() {
   const [error, setError] = useState(null);
   const [customerName, setCustomerName] = useState('');
   const [nameError, setNameError] = useState('');
-  const [activeTab, setActiveTab] = useState('cart'); // 'cart' or 'orders'
+  const [activeTab, setActiveTab] = useState('cart'); // 'cart' | 'history'
   const [tableOrders, setTableOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [showPayMethod, setShowPayMethod] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState('');
+  const [lastPaymentMethod, setLastPaymentMethod] = useState('cash');
+  const [lastOrderTotal, setLastOrderTotal] = useState(0);
+
+  // Pastikan URL selalu /cart?meja=X saat di halaman keranjang
+  useEffect(() => {
+    if (tableNumber) {
+      const params = new URLSearchParams(location.search);
+      if (params.get('meja') !== tableNumber) {
+        navigate(`/cart?meja=${tableNumber}`, { replace: true });
+      }
+    }
+  }, [tableNumber, navigate, location.search]);
 
   useEffect(() => {
     if (!tableNumber) {
@@ -84,22 +109,28 @@ function Cart() {
     }
   }, [tableNumber]);
 
-  const handleCheckout = async () => {
-    if (cartItems.length === 0 || !tableNumber) return;
-
+  const validateCustomerName = () => {
     if (!customerName || !customerName.trim()) {
       setNameError('Nama pemesan wajib diisi!');
-      const inputEl = document.getElementById('customer-name-input');
-      if (inputEl) inputEl.focus();
-      return;
+      document.getElementById('customer-name-input')?.focus();
+      return false;
     }
-
     if (customerName.trim().length < 3) {
       setNameError('Nama pemesan minimal 3 karakter!');
-      const inputEl = document.getElementById('customer-name-input');
-      if (inputEl) inputEl.focus();
-      return;
+      document.getElementById('customer-name-input')?.focus();
+      return false;
     }
+    return true;
+  };
+
+  const handleOpenPayMethod = () => {
+    if (cartItems.length === 0 || !tableNumber) return;
+    if (!validateCustomerName()) return;
+    setShowPayMethod(true);
+  };
+
+  const handleConfirmPayment = async (paymentMethod) => {
+    if (cartItems.length === 0 || !tableNumber) return;
 
     setIsSubmitting(true);
     try {
@@ -107,6 +138,7 @@ function Cart() {
         table_number: parseInt(tableNumber),
         customer_name: customerName.trim(),
         total_amount: totalPrice,
+        payment_method: paymentMethod,
         items: cartItems.map(item => ({
           product_id: item.id,
           menu_item_id: item.id,
@@ -118,8 +150,13 @@ function Cart() {
       const result = await submitOrder(orderData);
 
       if (result.success) {
+        setLastOrderId(result.data.order_id || result.data.id);
+        setLastPaymentMethod(paymentMethod);
+        setLastOrderTotal(totalPrice);
         clearCart();
-        navigate(`/order-success?meja=${tableNumber}&order_id=${result.data.order_id}`);
+        setShowPayMethod(false);
+        setShowSuccessModal(true);
+        fetchTableOrders(false);
       }
     } catch (err) {
       console.error('Gagal mengirim pesanan:', err);
@@ -127,6 +164,16 @@ function Cart() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCloseSuccess = () => {
+    setShowSuccessModal(false);
+  };
+
+  const handleViewHistory = () => {
+    setShowSuccessModal(false);
+    setActiveTab('history');
+    fetchTableOrders(true);
   };
 
   return (
@@ -158,14 +205,14 @@ function Cart() {
               🛒 Keranjang ({totalItems})
             </button>
             <button
-              className={`tab-item ${activeTab === 'orders' ? 'active' : ''}`}
+              className={`tab-item ${activeTab === 'history' ? 'active' : ''}`}
               onClick={() => {
-                setActiveTab('orders');
+                setActiveTab('history');
                 fetchTableOrders(true);
               }}
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
-              📋 Status Pesanan
+              📋 Histori Pemesanan
               {tableOrders.filter(o => o.status === 'pending' || o.status === 'processing' || o.status === 'diproses').length > 0 && (
                 <span 
                   className="cart-badge" 
@@ -366,7 +413,7 @@ function Cart() {
                 <button
                   className="checkout-button"
                   id="checkout-button"
-                  onClick={handleCheckout}
+                  onClick={handleOpenPayMethod}
                   disabled={isSubmitting || !tableNumber}
                   style={!tableNumber ? { background: 'var(--color-text-muted)', cursor: 'not-allowed', opacity: 0.6 } : {}}
                 >
@@ -429,6 +476,9 @@ function Cart() {
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                         {new Date(order.order_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB • {order.customer_name || 'Pelanggan'}
+                        {order.payment_method && (
+                          <> · 💳 {PAYMENT_LABELS[order.payment_method] || order.payment_method}</>
+                        )}
                       </span>
                     </div>
                     
@@ -487,6 +537,25 @@ function Cart() {
           )
         )}
       </div>
+
+      <PayMethod
+        isOpen={showPayMethod}
+        onClose={() => !isSubmitting && setShowPayMethod(false)}
+        onConfirm={handleConfirmPayment}
+        totalPrice={totalPrice}
+        tableNumber={tableNumber}
+        isSubmitting={isSubmitting}
+      />
+
+      <OrderSuccessModal
+        isOpen={showSuccessModal}
+        onClose={handleCloseSuccess}
+        tableNumber={tableNumber}
+        orderId={lastOrderId}
+        paymentMethod={lastPaymentMethod}
+        totalAmount={lastOrderTotal}
+        onViewHistory={handleViewHistory}
+      />
     </div>
   );
 }

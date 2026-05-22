@@ -135,7 +135,8 @@ app.get('/api/menu', async (req, res) => {
 
 // POST pesanan baru dari meja
 app.post('/api/orders', async (req, res) => {
-  const { table_number, items, total_amount, customer_name } = req.body;
+  const { table_number, items, total_amount, customer_name, payment_method } = req.body;
+  const payMethod = ['cash', 'qris', 'debit', 'ewallet'].includes(payment_method) ? payment_method : 'cash';
 
   if (!table_number || !customer_name || !customer_name.trim() || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ success: false, message: 'Nama pemesan dan data pesanan wajib diisi!' });
@@ -147,10 +148,22 @@ app.post('/api/orders', async (req, res) => {
     await conn.beginTransaction();
 
     // 1. Insert into tb_orders table
-    const [orderResult] = await conn.query(
-      'INSERT INTO tb_orders (table_number, customer_name, total_amount, status, payment_status) VALUES (?, ?, ?, ?, ?)',
-      [table_number, customer_name.trim(), total_amount, 'pending', 'unpaid']
-    );
+    let orderResult;
+    try {
+      [orderResult] = await conn.query(
+        'INSERT INTO tb_orders (table_number, customer_name, total_amount, status, payment_status, payment_method) VALUES (?, ?, ?, ?, ?, ?)',
+        [table_number, customer_name.trim(), total_amount, 'pending', 'unpaid', payMethod]
+      );
+    } catch (insertErr) {
+      if (insertErr.code === 'ER_BAD_FIELD_ERROR') {
+        [orderResult] = await conn.query(
+          'INSERT INTO tb_orders (table_number, customer_name, total_amount, status, payment_status) VALUES (?, ?, ?, ?, ?)',
+          [table_number, customer_name.trim(), total_amount, 'pending', 'unpaid']
+        );
+      } else {
+        throw insertErr;
+      }
+    }
     const orderId = orderResult.insertId;
 
     // 2. Insert into tb_orders_items table
@@ -191,6 +204,7 @@ app.post('/api/orders', async (req, res) => {
         customer_name: customer_name.trim(),
         total_amount,
         status: 'pending',
+        payment_method: payMethod,
         order_time: new Date().toISOString()
       }
     });
@@ -320,6 +334,7 @@ app.get('/api/orders', async (req, res) => {
       customer_name: order.customer_name,
       total_amount: parseFloat(order.total_amount),
       status: order.status,
+      payment_method: order.payment_method || 'cash',
       order_time: order.order_time,
       items: itemsByOrderId[order.id] || []
     }));

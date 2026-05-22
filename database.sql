@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS tb_orders (
     total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     status ENUM('pending', 'processing', 'completed', 'cancelled') DEFAULT 'pending',
     payment_status ENUM('unpaid', 'paid') DEFAULT 'unpaid',
+    payment_method VARCHAR(50) DEFAULT 'cash',
     order_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_order_status (status),
