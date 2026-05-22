@@ -2,13 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Produk from './Produk';
 import Kategori from './Kategori';
-import Antrean from '../sidebar-menu/Antrean';
 import Riwayat from '../sidebar-menu/Riwayat';
 import Statistik from '../sidebar-menu/Statistik';
 import QrCodes from '../sidebar-menu/QrCodes';
 import ProdukTab from '../sidebar-menu/ProdukTab';
 import KategoriTab from '../sidebar-menu/KategoriTab';
-import { PinIcon, ClockIcon, CookIcon, CheckIcon, RefreshIcon, TrashIcon, CogIcon } from '../components/TwIcons';
+import { PinIcon, RefreshIcon, CogIcon } from '../components/TwIcons';
 
 function DashboardKasir() {
   const navigate = useNavigate();
@@ -21,7 +20,7 @@ function DashboardKasir() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('antrean'); // 'antrean', 'riwayat', 'statistik', 'qrcodes', 'produk', 'kategori'
+  const [activeTab, setActiveTab] = useState('riwayat'); // 'riwayat', 'statistik', 'qrcodes', 'produk', 'kategori'
   const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'completed', 'cancelled'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pollInterval = useRef(null);
@@ -96,7 +95,7 @@ function DashboardKasir() {
   // Sync activeTab with URL path (last segment)
   useEffect(() => {
     const parts = location.pathname.split('/').filter(Boolean);
-    const last = parts[parts.length - 1] || 'antrean';
+    const last = parts[parts.length - 1] || 'riwayat';
     // only update if different
     if (last !== activeTab) setActiveTab(last);
   }, [location.pathname]);
@@ -222,20 +221,6 @@ function DashboardKasir() {
 
   const activeOrdersCount = pendingCount + processingCount;
 
-  // Filter history orders (completed and cancelled)
-  const historyOrders = orders.filter(o => {
-    if (o.status === 'pending' || o.status === 'processing' || o.status === 'diproses') {
-      return false;
-    }
-    if (historyFilter === 'completed') {
-      return o.status === 'completed' || o.status === 'selesai';
-    }
-    if (historyFilter === 'cancelled') {
-      return o.status === 'cancelled';
-    }
-    return true; // 'all'
-  });
-
   // Calculate top menu items based on completed orders
   const getTopMenuItems = () => {
     const itemCounts = {};
@@ -256,59 +241,6 @@ function DashboardKasir() {
   };
   const topItems = getTopMenuItems();
   const maxQty = topItems.length > 0 ? Math.max(...topItems.map(item => item.qty)) : 1;
-
-  // Helper to render order card
-  const renderOrderCard = (order) => (
-    <div key={order.id} className="order-card" id={`order-card-${order.id}`}>
-      <div className="order-card-header">
-        <span className="order-meja"><PinIcon /> Meja {order.table_number}</span>
-        <span className="order-time">{formatTime(order.order_time)}</span>
-      </div>
-      
-      <div className="order-body">
-        <div className="order-meta-row">
-          <span>ID: #{order.id}</span>
-          <span className={`status-badge ${order.status}`}>
-            {order.status === 'processing' ? 'diproses' : order.status}
-          </span>
-        </div>
-
-        <div className="order-items-list">
-          {order.items && order.items.map((item, idx) => (
-            <div key={idx} className="order-item-row">
-              <span>x{item.quantity} {item.name || `Menu ID ${item.product_id || item.menu_item_id}`}</span>
-              <span>{formatPrice(item.price * item.quantity)}</span>
-            </div>
-          ))}
-          {(!order.items || order.items.length === 0) && (
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Tidak ada detail item</p>
-          )}
-        </div>
-
-        <div className="order-total-row">
-          <span>Total Pembayaran</span>
-          <span className="amount">{formatPrice(order.total_amount)}</span>
-        </div>
-      </div>
-
-      <div className="order-actions">
-        {(order.status === 'pending') && (
-          <>
-            <button className="btn-action process" onClick={() => handleUpdateStatus(order.id, 'processing')}><CookIcon /> Proses</button>
-            <button className="btn-action cancel" onClick={() => handleUpdateStatus(order.id, 'cancelled')}><TrashIcon /> Tolak</button>
-          </>
-        )}
-        {(order.status === 'processing' || order.status === 'diproses') && (
-          <button className="btn-action complete" onClick={() => handleUpdateStatus(order.id, 'completed')}><CheckIcon /> Selesaikan</button>
-        )}
-        {(order.status === 'completed' || order.status === 'selesai' || order.status === 'cancelled') && (
-          <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 'auto', textAlign: 'center' }}>
-            Tidak ada tindakan tersisa
-          </span>
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <div className="dashboard-container">
@@ -356,20 +288,6 @@ function DashboardKasir() {
         </div>
 
         <nav className="sidebar-menu">
-          <button 
-            className={`sidebar-menu-item ${activeTab === 'antrean' ? 'active' : ''}`}
-            onClick={() => { navigate('/dashboard/antrean'); setSidebarOpen(false); }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <span className="menu-text">Antrean Aktif</span>
-            {activeOrdersCount > 0 && (
-              <span className="menu-badge">{activeOrdersCount}</span>
-            )}
-          </button>
-
           <button
             className={`sidebar-menu-item ${activeTab === 'produk' ? 'active' : ''}`}
             onClick={() => { navigate('/dashboard/produk'); setSidebarOpen(false); }}
@@ -406,6 +324,9 @@ function DashboardKasir() {
               <line x1="9" y1="8" x2="10" y2="8" />
             </svg>
             <span className="menu-text">Pesanan</span>
+            {activeOrdersCount > 0 && (
+              <span className="menu-badge">{activeOrdersCount}</span>
+            )}
           </button>
 
           <button 
@@ -463,7 +384,6 @@ function DashboardKasir() {
         <header className="main-header">
           <div className="header-info">
             <h1 className="header-title">
-              {activeTab === 'antrean' && 'Antrean Aktif'}
               {activeTab === 'riwayat' && 'Semua Pesanan'}
               {activeTab === 'statistik' && 'Analisis & Omzet'}
               {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
@@ -471,8 +391,7 @@ function DashboardKasir() {
               {activeTab === 'kategori' && 'Manajemen Kategori'}
             </h1>
             <p className="header-subtitle">
-              {activeTab === 'antrean' && 'Kelola pesanan pelanggan yang sedang berjalan.'}
-              {activeTab === 'riwayat' && 'Seluruh daftar pesanan pelanggan yang tercatat.'}
+              {activeTab === 'riwayat' && 'Kelola semua pesanan pelanggan — proses, tolak, atau selesaikan dari satu tempat.'}
               {activeTab === 'statistik' && 'Statistik performa penjualan dan total pendapatan.'}
               {activeTab === 'qrcodes' && 'Buat QR Code meja secara instan dan daftarkan ke database.'}
               {activeTab === 'produk' && 'Tambah, sunting, atau hapus produk yang tersedia di menu.'}
@@ -489,7 +408,6 @@ function DashboardKasir() {
         {/* Content Wrapper */}
         <main className="dashboard-content">
           <h2 className="mobile-view-title">
-            {activeTab === 'antrean' && 'Antrean Aktif'}
             {activeTab === 'riwayat' && 'Semua Pesanan'}
             {activeTab === 'statistik' && 'Analisis & Omzet'}
             {activeTab === 'qrcodes' && 'Generate QR Code Meja'}
@@ -499,12 +417,8 @@ function DashboardKasir() {
 
           {error && <div className="auth-error" style={{ maxWidth: '100%' }}>{error}</div>}
 
-          {activeTab === 'antrean' && (
-            <Antrean orders={orders} loading={loading} onUpdateStatus={handleUpdateStatus} formatPrice={formatPrice} formatTime={formatTime} />
-          )}
-
           {activeTab === 'riwayat' && (
-            <Riwayat orders={orders} loading={loading} historyFilter={historyFilter} setHistoryFilter={setHistoryFilter} formatPrice={formatPrice} formatTime={formatTime} />
+            <Riwayat orders={orders} loading={loading} historyFilter={historyFilter} setHistoryFilter={setHistoryFilter} onUpdateStatus={handleUpdateStatus} formatPrice={formatPrice} formatTime={formatTime} />
           )}
 
           {activeTab === 'statistik' && (
