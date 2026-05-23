@@ -643,7 +643,7 @@ app.get('/api/health', (req, res) => {
 // ==============================
 initDatabase()
   .then(() => {
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`\n🚀 QuickOrder Backend API running on http://localhost:${PORT}`);
       console.log(`📋 ENDPOINTS USER (Pelanggan):`);
       console.log(`   GET  /api/categories  - Ambil kategori`);
