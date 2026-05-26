@@ -1,10 +1,21 @@
+import { memo } from 'react';
 import { useCart } from '../context/CartContext';
 import { getMenuImage, formatPrice } from '../services/api';
 
-function MenuCard({ item }) {
+function MenuCard({ item, onInteract }) {
   const { addToCart, decreaseQuantity, getItemQuantity } = useCart();
   const quantity = getItemQuantity(item.id);
   const imageSrc = getMenuImage(item.image_url);
+
+  const handleAddClick = () => {
+    if (onInteract) onInteract();
+    addToCart(item);
+  };
+
+  const handleDecreaseClick = () => {
+    if (onInteract) onInteract();
+    decreaseQuantity(item.id);
+  };
 
   return (
     <div className="menu-card" id={`menu-item-${item.id}`}>
@@ -32,8 +43,9 @@ function MenuCard({ item }) {
                 <button
                   className="add-button"
                   id={`add-btn-${item.id}`}
-                  onClick={() => addToCart(item)}
+                  onClick={handleAddClick}
                   aria-label={`Tambah ${item.name}`}
+                  type="button"
                 >
                   +
                 </button>
@@ -41,16 +53,18 @@ function MenuCard({ item }) {
                 <div className="qty-control" id={`qty-control-${item.id}`}>
                   <button
                     className="qty-btn minus"
-                    onClick={() => decreaseQuantity(item.id)}
+                    onClick={handleDecreaseClick}
                     aria-label="Kurangi"
+                    type="button"
                   >
                     −
                   </button>
                   <span className="qty-value">{quantity}</span>
                   <button
                     className="qty-btn plus"
-                    onClick={() => addToCart(item)}
+                    onClick={handleAddClick}
                     aria-label="Tambah"
+                    type="button"
                   >
                     +
                   </button>
@@ -66,4 +80,4 @@ function MenuCard({ item }) {
   );
 }
 
-export default MenuCard;
+export default memo(MenuCard);

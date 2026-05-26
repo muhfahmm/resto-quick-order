@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import TabMenu from '../components/TabMenu';
@@ -28,6 +28,11 @@ function Home() {
   const [activeCategory, setActiveCategory] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const hasLoadedOnceRef = useRef(false);
+  
+  // Use useRef untuk avoid triggering useEffect dependency
+  const lastInteractionTimeRef = useRef(0);
+  const pollingTimeoutRef = useRef(null);
 
   const handleScanSuccess = (decodedText) => {
     let scannedTable = '';
@@ -56,22 +61,28 @@ function Home() {
 
   const { totalItems, totalPrice } = useCart();
 
+  // Handle user interaction untuk pause polling
+  const handleMenuInteraction = () => {
+    lastInteractionTimeRef.current = Date.now();
+    // Clear any pending polling timeout
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
+    }
+  };
+
   // Fetch categories & menu items
   useEffect(() => {
     let active = true;
     let intervalId;
 
-    async function loadData() {
-      setLoading(true);
-      setError(null);
+    async function loadData({ showLoading } = { showLoading: true }) {
+      if (showLoading) setLoading(true);
+      // Jangan reset error saat silent refresh biar UI stabil
+      if (showLoading) setError(null);
       try {
         if (!active) return;
-        // 1. Validasi nomor meja di database jika ada
-        if (tableNumber) {
-          await validateTable(tableNumber);
-        }
-
-        // 2. Ambil data kategori dan menu
+        // 1. Ambil data kategori dan menu
         const cats = await getCategories();
         if (!active) return;
         setCategories(cats);
@@ -82,23 +93,65 @@ function Home() {
       } catch (err) {
         console.error('Gagal memuat data:', err);
         if (!active) return;
-        setError(err.message);
+        // Pada silent refresh, jangan "menghancurkan" UI dengan error banner.
+        if (showLoading) setError(err.message);
       } finally {
         if (!active) return;
-        setLoading(false);
+        if (showLoading) setLoading(false);
+        hasLoadedOnceRef.current = true;
       }
     }
 
-    loadData();
-    intervalId = setInterval(loadData, 5000);
+    // Initial / category-change load: tampilkan loading hanya saat pertama kali
+    loadData({ showLoading: !hasLoadedOnceRef.current });
+
+    // Setup polling - cek setiap 5 detik apakah boleh fetch atau tidak
+    const startPolling = () => {
+      if (!active) return;
+      
+      // Check if pause period is still active (3 detik setelah last interaction)
+      const timeSinceLastInteraction = Date.now() - lastInteractionTimeRef.current;
+      
+      if (timeSinceLastInteraction > 3000) {
+        // Pause period sudah selesai, boleh polling
+        // Silent refresh supaya tidak terlihat seperti refresh halaman
+        loadData({ showLoading: false });
+      }
+      
+      // Schedule next check
+      pollingTimeoutRef.current = setTimeout(startPolling, 5000);
+    };
+
+    pollingTimeoutRef.current = setTimeout(startPolling, 5000);
 
     return () => {
       active = false;
-      clearInterval(intervalId);
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+      }
     };
   }, [activeCategory, tableNumber]);
 
+  // Validasi meja cukup saat meja berubah (bukan tiap polling)
+  useEffect(() => {
+    let mounted = true;
+    async function checkTable() {
+      if (!tableNumber) return;
+      try {
+        await validateTable(tableNumber);
+      } catch (err) {
+        if (!mounted) return;
+        setError(err.message);
+      }
+    }
+    checkTable();
+    return () => {
+      mounted = false;
+    };
+  }, [tableNumber]);
+
   const handleCategoryChange = (categoryId) => {
+    handleMenuInteraction();
     setActiveCategory(categoryId);
   };
 
@@ -172,7 +225,7 @@ function Home() {
             ) : (
               <div className="menu-grid" id="menu-grid">
                 {menuItems.map((item) => (
-                  <MenuCard key={item.id} item={item} />
+                  <MenuCard key={item.id} item={item} onInteract={handleMenuInteraction} />
                 ))}
               </div>
             )}
