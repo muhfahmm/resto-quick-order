@@ -30,7 +30,7 @@ function Produk() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('http://192.168.100.3:3001/api/categories');
+      const res = await fetch(`${API_BASE_URL}/categories`);
       const data = await res.json();
       if (res.ok && data.success) setCategories(data.data);
     } catch (err) {
@@ -62,7 +62,7 @@ function Produk() {
       if (imageFile) {
         const fd = new FormData();
         fd.append('file', imageFile);
-        const up = await fetch('http://192.168.100.3:3001/api/upload', { method: 'POST', body: fd });
+        const up = await fetch(`${API_BASE_URL}/upload`, { method: 'POST', body: fd });
         const upData = await up.json();
         if (!up.ok || !upData.success) {
           setError(upData.message || `Gagal mengunggah gambar (${up.status})`);
@@ -72,7 +72,7 @@ function Produk() {
         imageUrl = upData.url;
       }
 
-      const res = await fetch('http://192.168.100.3:3001/api/products', {
+      const res = await fetch(`${API_BASE_URL}/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
