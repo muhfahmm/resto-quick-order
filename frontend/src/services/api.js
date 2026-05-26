@@ -2,8 +2,7 @@
 // API Service - QuickOrder Restaurant
 // ==============================
 
-const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const API_BASE_URL = `http://${hostname}:3001/api`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Import gambar menu
 import nasiGoreng from '../assets/nasi-goreng.png';
