@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = 'http://192.168.100.3:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 function Produk() {
   const [products, setProducts] = useState([]);
@@ -133,7 +133,8 @@ function Produk() {
       if (res.ok && data.success) {
         fetchProducts();
       } else {
-        alert(data.message || 'Gagal memperbarui ketersediaan produk');
+        const message = data?.message || `Status produk gagal diperbarui. (${res.status})`;
+        alert(message);
       }
     } catch (err) {
       console.error('Error updating availability', err);
