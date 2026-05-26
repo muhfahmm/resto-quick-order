@@ -26,7 +26,7 @@ function MenuCard({ item }) {
         <div className="menu-card-footer">
           <span className="menu-card-price">{formatPrice(item.price)}</span>
 
-          {item.is_available && (
+          {item.is_available ? (
             <>
               {quantity === 0 ? (
                 <button
@@ -57,6 +57,8 @@ function MenuCard({ item }) {
                 </div>
               )}
             </>
+          ) : (
+            <div className="menu-card-badge-habis">HABIS</div>
           )}
         </div>
       </div>
