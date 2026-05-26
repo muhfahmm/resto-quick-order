@@ -112,10 +112,10 @@ app.get('/api/categories', async (req, res) => {
 app.get('/api/menu', async (req, res) => {
   const { category_id } = req.query;
   try {
-    let sql = 'SELECT * FROM tb_products WHERE is_available = true';
+    let sql = 'SELECT * FROM tb_products';
     const params = [];
     if (category_id && category_id !== '0' && category_id !== 0) {
-      sql += ' AND category_id = ?';
+      sql += ' WHERE category_id = ?';
       params.push(parseInt(category_id));
     }
     const [items] = await pool.query(sql, params);
@@ -131,6 +131,29 @@ app.get('/api/menu', async (req, res) => {
   } catch (error) {
     console.error('Error fetching menu items:', error);
     res.status(500).json({ success: false, message: 'Gagal mengambil data menu dari database' });
+  }
+});
+
+// GET semua produk untuk admin (termasuk yang tidak tersedia)
+app.get('/api/products', async (req, res) => {
+  try {
+    const [products] = await pool.query(
+      `SELECT p.*, c.name AS category_name
+       FROM tb_products p
+       LEFT JOIN tb_categories c ON p.category_id = c.id
+       ORDER BY p.id DESC`
+    );
+
+    const formattedProducts = products.map(product => ({
+      ...product,
+      price: parseFloat(product.price),
+      is_available: !!product.is_available
+    }));
+
+    res.json({ success: true, data: formattedProducts });
+  } catch (error) {
+    console.error('Error fetching products for admin:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil daftar produk' });
   }
 });
 
@@ -175,9 +198,12 @@ app.post('/api/orders', async (req, res) => {
       }
 
       // Get current price of product from database to ensure price integrity
-      const [product] = await conn.query('SELECT price FROM tb_products WHERE id = ?', [productId]);
+      const [product] = await conn.query('SELECT price, is_available FROM tb_products WHERE id = ?', [productId]);
       if (product.length === 0) {
         throw new Error(`Produk dengan ID ${productId} tidak ditemukan`);
+      }
+      if (!product[0].is_available) {
+        throw new Error(`Produk dengan ID ${productId} tidak tersedia saat ini`);
       }
       const price = parseFloat(product[0].price);
 

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API_BASE_URL = 'http://192.168.100.3:3001/api';
+
 function Produk() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -14,9 +16,10 @@ function Produk() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://192.168.100.3:3001/api/menu'); // existing endpoint
+      const res = await fetch(`${API_BASE_URL}/products`);
       const data = await res.json();
       if (res.ok && data.success) setProducts(data.data);
+      else if (!res.ok) throw new Error(data.message || 'Gagal memuat produk');
     } catch (err) {
       console.error('Error fetching products', err);
       setError('Gagal memuat produk');
@@ -110,11 +113,30 @@ function Produk() {
   const handleDelete = async (id) => {
     if (!confirm('Hapus produk ini?')) return;
     try {
-      const res = await fetch(`http://192.168.100.3:3001/api/products/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (res.ok && data.success) fetchProducts(); else alert(data.message || 'Gagal menghapus produk');
     } catch (err) {
       console.error(err);
+      alert('Gagal menghubungi server');
+    }
+  };
+
+  const handleToggleAvailability = async (productId, available) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_available: available })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchProducts();
+      } else {
+        alert(data.message || 'Gagal memperbarui ketersediaan produk');
+      }
+    } catch (err) {
+      console.error('Error updating availability', err);
       alert('Gagal menghubungi server');
     }
   };
@@ -212,6 +234,12 @@ function Produk() {
                     <td>Rp {Number(p.price).toLocaleString('id-ID')}</td>
                     <td>{p.is_available ? 'Ya' : 'Tidak'}</td>
                     <td className="table-actions">
+                      <button
+                        className="btn-small"
+                        onClick={() => handleToggleAvailability(p.id, !p.is_available)}
+                      >
+                        {p.is_available ? 'Set Habis' : 'Set Tersedia'}
+                      </button>
                       <button className="btn-small" onClick={() => handleDelete(p.id)}>Hapus</button>
                     </td>
                   </tr>

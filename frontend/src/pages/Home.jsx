@@ -58,10 +58,14 @@ function Home() {
 
   // Fetch categories & menu items
   useEffect(() => {
+    let active = true;
+    let intervalId;
+
     async function loadData() {
       setLoading(true);
       setError(null);
       try {
+        if (!active) return;
         // 1. Validasi nomor meja di database jika ada
         if (tableNumber) {
           await validateTable(tableNumber);
@@ -69,18 +73,29 @@ function Home() {
 
         // 2. Ambil data kategori dan menu
         const cats = await getCategories();
+        if (!active) return;
         setCategories(cats);
 
         const items = await getMenuItems(activeCategory === 0 ? null : activeCategory);
+        if (!active) return;
         setMenuItems(items);
       } catch (err) {
         console.error('Gagal memuat data:', err);
+        if (!active) return;
         setError(err.message);
       } finally {
+        if (!active) return;
         setLoading(false);
       }
     }
+
     loadData();
+    intervalId = setInterval(loadData, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
   }, [activeCategory, tableNumber]);
 
   const handleCategoryChange = (categoryId) => {
