@@ -16,13 +16,25 @@ function Produk() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/products`);
-      const data = await res.json();
-      if (res.ok && data.success) setProducts(data.data);
-      else if (!res.ok) throw new Error(data.message || 'Gagal memuat produk');
+      let res = await fetch(`${API_BASE_URL}/products`);
+      let data = await res.json().catch(() => null);
+
+      if (res.ok && data?.success) {
+        setProducts(data.data);
+      } else if (res.status === 404) {
+        const fallback = await fetch(`${API_BASE_URL}/menu`);
+        const fallbackData = await fallback.json().catch(() => null);
+        if (fallback.ok && fallbackData?.success) {
+          setProducts(fallbackData.data);
+        } else {
+          throw new Error(fallbackData?.message || `Gagal memuat produk (fallback ${fallback.status})`);
+        }
+      } else {
+        throw new Error(data?.message || `Gagal memuat produk (${res.status})`);
+      }
     } catch (err) {
       console.error('Error fetching products', err);
-      setError('Gagal memuat produk');
+      setError(err?.message || 'Gagal memuat produk');
     } finally {
       setLoading(false);
     }
